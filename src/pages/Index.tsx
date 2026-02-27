@@ -97,6 +97,7 @@ const Index = () => {
       await supabase
         .from('notifica_agendamento')
         .insert({
+          id: agendamento.id,
           data_agendamento: dataAgendamento,
           nome_cliente: info.name,
           telefone_cliente: info.phone,
