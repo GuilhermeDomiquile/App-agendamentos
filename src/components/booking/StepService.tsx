@@ -1,6 +1,6 @@
 import { Service, services } from '@/data/services';
-import { Scissors, Clock, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Check } from 'lucide-react';
 
 interface StepServiceProps {
   selected: Service | null;
@@ -8,12 +8,13 @@ interface StepServiceProps {
 }
 
 const iconMap: Record<string, string> = {
-  'corte': '✂️',
+  'cabelo': '✂️',
   'barba': '🪒',
-  'corte-barba': '💈',
-  'hot-towel': '🔥',
-  'pigmentacao': '🎨',
+  'cabelo-barba': '💈',
+  'cabelo-sobrancelha': '✂️✨',
+  'pezinho': '👌',
   'sobrancelha': '✨',
+  'completo': '⭐',
 };
 
 export function StepService({ selected, onSelect }: StepServiceProps) {
@@ -21,41 +22,34 @@ export function StepService({ selected, onSelect }: StepServiceProps) {
     <div className="space-y-4">
       <h2 className="text-2xl font-bold text-foreground">Escolha o serviço</h2>
       <p className="text-muted-foreground">Selecione o serviço desejado para continuar.</p>
-      <div className="grid gap-3">
-        {services.map((service) => (
-          <button
-            key={service.id}
-            onClick={() => onSelect(service)}
-            className={cn(
-              "flex items-center gap-4 w-full p-4 rounded-lg border text-left transition-all",
-              selected?.id === service.id
-                ? "border-primary bg-primary/10"
-                : "border-border bg-card hover:border-primary/50 hover:bg-card/80"
-            )}
-          >
-            <span className="text-2xl">{iconMap[service.id] || '💈'}</span>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-foreground">{service.name}</p>
-              <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3.5 w-3.5" />
-                  {service.duration} min
-                </span>
-                <span className="flex items-center gap-1">
-                  R$ {service.price.toFixed(2)}
-                </span>
-              </div>
-            </div>
-            <div className={cn(
-              "h-5 w-5 rounded-full border-2 flex items-center justify-center transition-colors",
-              selected?.id === service.id ? "border-primary bg-primary" : "border-muted-foreground"
-            )}>
-              {selected?.id === service.id && (
-                <div className="h-2 w-2 rounded-full bg-primary-foreground" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {services.map((service) => {
+          const isSelected = selected?.id === service.id;
+          return (
+            <button
+              key={service.id}
+              onClick={() => onSelect(service)}
+              className={cn(
+                "relative flex flex-col items-start p-4 rounded-xl border-2 text-left transition-all duration-200",
+                isSelected
+                  ? "border-primary bg-primary/10 shadow-md shadow-primary/10"
+                  : "border-border bg-card hover:border-primary/40 hover:shadow-sm"
               )}
-            </div>
-          </button>
-        ))}
+            >
+              {isSelected && (
+                <div className="absolute top-3 right-3 h-5 w-5 rounded-full bg-primary flex items-center justify-center">
+                  <Check className="h-3 w-3 text-primary-foreground" />
+                </div>
+              )}
+              <span className="text-xl mb-2">{iconMap[service.id] || '💈'}</span>
+              <p className="font-bold text-foreground text-base">{service.name}</p>
+              <p className="text-sm text-muted-foreground mt-0.5 leading-snug">{service.description}</p>
+              <p className="text-lg font-bold text-primary mt-3">
+                R$ {service.price.toFixed(2)}
+              </p>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
