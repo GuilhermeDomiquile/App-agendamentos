@@ -32,13 +32,24 @@ const Index = () => {
       case 1: return !!service;
       case 2: return !!date;
       case 3: return !!time;
-      case 4: return info.name.trim().length > 0 && info.phone.trim().length > 0;
+      case 4: return info.name.trim().length > 0 && /^\d{10,11}$/.test(info.phone);
       default: return false;
     }
   };
 
   const handleSubmit = async () => {
-    if (!service || !date || !time) return;
+    if (!service || !date || !time) {
+      toast({ title: 'Campos obrigatórios', description: 'Por favor, preencha todos os campos antes de confirmar o agendamento.', variant: 'destructive' });
+      return;
+    }
+    if (!info.name.trim()) {
+      toast({ title: 'Nome obrigatório', description: 'Por favor, informe seu nome completo.', variant: 'destructive' });
+      return;
+    }
+    if (!/^\d{10,11}$/.test(info.phone)) {
+      toast({ title: 'Telefone inválido', description: 'O telefone deve conter apenas números e incluir o DDD (10 ou 11 dígitos).', variant: 'destructive' });
+      return;
+    }
     setSubmitting(true);
 
     try {
@@ -117,7 +128,7 @@ const Index = () => {
     } catch (err: any) {
       toast({
         title: 'Erro ao agendar',
-        description: err.message || 'Tente novamente.',
+        description: 'Ocorreu um problema ao confirmar seu agendamento. Por favor, tente novamente.',
         variant: 'destructive',
       });
     } finally {
