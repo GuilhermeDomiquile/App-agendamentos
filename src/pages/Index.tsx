@@ -94,6 +94,24 @@ const Index = () => {
           encerrado: false,
         });
 
+      // 5. Send webhook notification
+      try {
+        await fetch('https://n8n.automatizai.site/webhook/appagendamentos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            agendamento_id: agendamento.id,
+            telefone: info.phone,
+            nome_cliente: info.name,
+            servico: service.name,
+            data: dateStr,
+            hora: time,
+          }),
+        });
+      } catch (webhookErr) {
+        console.warn('Webhook failed:', webhookErr);
+      }
+
       setBookingId(agendamento.id);
       setStep(5);
     } catch (err: any) {
