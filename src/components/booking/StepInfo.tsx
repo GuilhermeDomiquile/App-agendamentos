@@ -31,9 +31,14 @@ export function StepInfo({ info, onChange }: StepInfoProps) {
           <Label htmlFor="phone" className="text-foreground">Telefone</Label>
           <Input
             id="phone"
-            placeholder="(00) 00000-0000"
+            placeholder="11999990000"
             value={info.phone}
-            onChange={(e) => onChange({ ...info, phone: e.target.value })}
+            inputMode="numeric"
+            maxLength={11}
+            onChange={(e) => {
+              const digits = e.target.value.replace(/\D/g, '');
+              onChange({ ...info, phone: digits });
+            }}
             className="bg-card border-border text-foreground placeholder:text-muted-foreground"
           />
         </div>
