@@ -31,14 +31,13 @@ export function StepTime({ date, selected, onSelect }: StepTimeProps) {
       const dateStr = format(date, 'yyyy-MM-dd');
       const { data, error } = await supabase
         .from('agendamentos')
-        .select('horario')
+        .select('hora')
         .eq('data', dateStr)
         .eq('status', 'confirmado');
 
       if (!error && data) {
         setBookedSlots(data.map((row: any) => {
-          // Handle both time strings and full timestamps
-          const h = row.horario as string;
+          const h = row.hora as string;
           return h.length > 5 ? h.substring(0, 5) : h;
         }));
       } else {

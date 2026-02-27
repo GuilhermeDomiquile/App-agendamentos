@@ -44,40 +44,54 @@ const Index = () => {
     try {
       const dateStr = format(date, 'yyyy-MM-dd');
 
-      // 1. Insert client
-      const { error: clientError } = await supabase
+      // 1. Check if client exists by phone
+      const { data: existingClient } = await supabase
         .from('dados_clientes')
-        .insert({ nome: info.name, telefone: info.phone });
+        .select('id')
+        .eq('telefone', info.phone)
+        .maybeSingle();
 
-      if (clientError) throw clientError;
+      // 2. Insert client only if not found
+      if (!existingClient) {
+        const { error: clientError } = await supabase
+          .from('dados_clientes')
+          .insert({
+            telefone: info.phone,
+            nomewpp: info.name,
+            em_atendimento: false,
+            created_at: new Date().toISOString(),
+          });
+        if (clientError) throw clientError;
+      }
 
-      // 2. Insert appointment
+      // 3. Insert appointment
       const { data: agendamento, error: agendamentoError } = await supabase
         .from('agendamentos')
         .insert({
+          telefone: info.phone,
+          nome_cliente: info.name,
           servico: service.name,
           data: dateStr,
-          horario: time,
+          hora: time,
           status: 'confirmado',
-          em_atendimento: false,
-          nome_cliente: info.name,
-          telefone_cliente: info.phone,
+          created_at: new Date().toISOString(),
         })
         .select('id')
         .single();
 
       if (agendamentoError) throw agendamentoError;
 
-      // 3. Insert notification record
+      // 4. Insert notification record
+      const dataAgendamento = `${dateStr}T${time}:00`;
       await supabase
         .from('notifica_agendamento')
         .insert({
-          agendamento_id: agendamento.id,
+          data_agendamento: dataAgendamento,
           nome_cliente: info.name,
           telefone_cliente: info.phone,
-          servico: service.name,
-          data: dateStr,
-          horario: time,
+          notifica1: false,
+          notifica2: false,
+          encerrado: false,
         });
 
       setBookingId(agendamento.id);
