@@ -50,19 +50,21 @@ export function StepTime({ date, selected, onSelect }: StepTimeProps) {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 gap-3">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      <div className="flex flex-col items-center justify-center py-16 gap-3">
+        <Loader2 className="h-5 w-5 animate-spin text-primary" />
         <p className="text-muted-foreground text-sm">Carregando horários...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-bold text-foreground">Escolha o horário</h2>
-      <p className="text-muted-foreground">
-        Horários para {format(date, "dd/MM/yyyy")}. Cinza = indisponível.
-      </p>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-foreground">Escolha o horário</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          {format(date, "dd/MM/yyyy")}
+        </p>
+      </div>
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
         {allSlots.map((slot) => {
           const isBooked = bookedSlots.includes(slot);
@@ -72,11 +74,11 @@ export function StepTime({ date, selected, onSelect }: StepTimeProps) {
               disabled={isBooked}
               onClick={() => onSelect(slot)}
               className={cn(
-                "py-3 px-2 rounded-lg text-sm font-medium transition-all",
+                "py-3 rounded-xl text-sm font-medium transition-all",
                 isBooked
-                  ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                  ? "bg-muted/50 text-muted-foreground/40 cursor-not-allowed line-through"
                   : selected === slot
-                    ? "bg-primary text-primary-foreground"
+                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
                     : "bg-card border border-border text-foreground hover:border-primary/50"
               )}
             >

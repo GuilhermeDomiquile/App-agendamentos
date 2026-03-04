@@ -10,6 +10,7 @@ import { StepInfo } from '@/components/booking/StepInfo';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { ArrowLeft, ArrowRight, Check, Loader2, Scissors } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const TOTAL_STEPS = 4;
 
@@ -141,10 +142,10 @@ const Index = () => {
   if (step === 5 && bookingId !== null) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        <header className="py-6 text-center border-b border-border">
-          <div className="flex items-center justify-center gap-2">
-            <Scissors className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold text-foreground">Barbearia</h1>
+        <header className="py-5 text-center border-b border-border/50">
+          <div className="flex items-center justify-center gap-2.5">
+            <Scissors className="h-5 w-5 text-primary" />
+            <h1 className="text-xl font-bold text-foreground tracking-tight">Barbearia</h1>
           </div>
         </header>
         <main className="flex-1 flex items-center justify-center p-4">
@@ -203,21 +204,27 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="py-6 text-center border-b border-border">
-        <div className="flex items-center justify-center gap-2">
-          <Scissors className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold text-foreground">Barbearia</h1>
+      <header className="py-5 text-center border-b border-border/50 backdrop-blur-sm">
+        <div className="flex items-center justify-center gap-2.5">
+          <Scissors className="h-5 w-5 text-primary" />
+          <h1 className="text-xl font-bold text-foreground tracking-tight">Barbearia</h1>
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col w-full max-w-lg mx-auto p-4">
+      <main className="flex-1 flex flex-col w-full max-w-lg mx-auto p-5">
         {/* Progress */}
-        <div className="mb-6">
-          <div className="flex justify-between text-xs text-muted-foreground mb-2">
-            <span>Passo {step} de {TOTAL_STEPS}</span>
-            <span>{Math.round((step / TOTAL_STEPS) * 100)}%</span>
+        <div className="mb-8">
+          <div className="flex gap-2">
+            {[1, 2, 3, 4].map((s) => (
+              <div
+                key={s}
+                className={cn(
+                  "h-1 flex-1 rounded-full transition-all duration-300",
+                  s <= step ? "bg-primary" : "bg-muted"
+                )}
+              />
+            ))}
           </div>
-          <Progress value={(step / TOTAL_STEPS) * 100} className="h-2" />
         </div>
 
         {/* Step content */}
@@ -229,12 +236,12 @@ const Index = () => {
         </div>
 
         {/* Navigation */}
-        <div className="flex gap-3 pt-6 pb-4">
+        <div className="flex gap-3 pt-8 pb-4">
           {step > 1 && (
             <Button
               variant="outline"
               onClick={() => setStep(step - 1)}
-              className="flex-1"
+              className="flex-1 h-12 rounded-xl"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Voltar
@@ -244,7 +251,7 @@ const Index = () => {
             <Button
               onClick={() => setStep(step + 1)}
               disabled={!canNext()}
-              className="flex-1"
+              className="flex-1 h-12 rounded-xl"
             >
               Próximo
               <ArrowRight className="h-4 w-4 ml-2" />
@@ -253,7 +260,7 @@ const Index = () => {
             <Button
               onClick={handleSubmit}
               disabled={!canNext() || submitting}
-              className="flex-1"
+              className="flex-1 h-12 rounded-xl"
             >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
               Confirmar
