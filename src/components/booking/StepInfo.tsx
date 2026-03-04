@@ -13,22 +13,24 @@ interface StepInfoProps {
 
 export function StepInfo({ info, onChange }: StepInfoProps) {
   return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-bold text-foreground">Seus dados</h2>
-      <p className="text-muted-foreground">Preencha seus dados para confirmar o agendamento.</p>
-      <div className="space-y-4">
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-foreground">Seus dados</h2>
+        <p className="text-sm text-muted-foreground mt-1">Preencha para confirmar</p>
+      </div>
+      <div className="space-y-5">
         <div className="space-y-2">
-          <Label htmlFor="name" className="text-foreground">Nome completo</Label>
+          <Label htmlFor="name" className="text-foreground text-xs uppercase tracking-wider">Nome completo</Label>
           <Input
             id="name"
-            placeholder="Seu nome completo"
+            placeholder="Seu nome"
             value={info.name}
             onChange={(e) => onChange({ ...info, name: e.target.value })}
-            className="bg-card border-border text-foreground placeholder:text-muted-foreground"
+            className="bg-card border-border text-foreground placeholder:text-muted-foreground h-12 rounded-xl"
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="phone" className="text-foreground">Telefone</Label>
+          <Label htmlFor="phone" className="text-foreground text-xs uppercase tracking-wider">Telefone (com DDD)</Label>
           <Input
             id="phone"
             placeholder="11999990000"
@@ -39,7 +41,7 @@ export function StepInfo({ info, onChange }: StepInfoProps) {
               const digits = e.target.value.replace(/\D/g, '');
               onChange({ ...info, phone: digits });
             }}
-            className="bg-card border-border text-foreground placeholder:text-muted-foreground"
+            className="bg-card border-border text-foreground placeholder:text-muted-foreground h-12 rounded-xl"
           />
         </div>
       </div>

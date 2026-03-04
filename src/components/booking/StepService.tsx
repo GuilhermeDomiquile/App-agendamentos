@@ -7,22 +7,14 @@ interface StepServiceProps {
   onSelect: (service: Service) => void;
 }
 
-const iconMap: Record<string, string> = {
-  'cabelo': '✂️',
-  'barba': '🪒',
-  'cabelo-barba': '💈',
-  'cabelo-sobrancelha': '✂️✨',
-  'pezinho': '👌',
-  'sobrancelha': '✨',
-  'completo': '⭐',
-};
-
 export function StepService({ selected, onSelect }: StepServiceProps) {
   return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-bold text-foreground">Escolha o serviço</h2>
-      <p className="text-muted-foreground">Selecione o serviço desejado para continuar.</p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-foreground">Escolha o serviço</h2>
+        <p className="text-sm text-muted-foreground mt-1">Selecione o serviço desejado</p>
+      </div>
+      <div className="space-y-2">
         {services.map((service) => {
           const isSelected = selected?.id === service.id;
           return (
@@ -30,23 +22,28 @@ export function StepService({ selected, onSelect }: StepServiceProps) {
               key={service.id}
               onClick={() => onSelect(service)}
               className={cn(
-                "relative flex flex-col items-start p-4 rounded-xl border-2 text-left transition-all duration-200",
+                "relative w-full flex items-center justify-between p-4 rounded-xl border transition-all duration-200",
                 isSelected
-                  ? "border-primary bg-primary/10 shadow-md shadow-primary/10"
-                  : "border-border bg-card hover:border-primary/40 hover:shadow-sm"
+                  ? "border-primary bg-primary/10 shadow-lg shadow-primary/5"
+                  : "border-border bg-card hover:border-primary/40 hover:bg-card/80"
               )}
             >
-              {isSelected && (
-                <div className="absolute top-3 right-3 h-5 w-5 rounded-full bg-primary flex items-center justify-center">
-                  <Check className="h-3 w-3 text-primary-foreground" />
+              <span className="font-semibold text-foreground">{service.name}</span>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-bold text-primary">
+                  R$ {service.price.toFixed(2)}
+                </span>
+                <div
+                  className={cn(
+                    "h-5 w-5 rounded-full border-2 flex items-center justify-center transition-all",
+                    isSelected
+                      ? "border-primary bg-primary"
+                      : "border-muted-foreground/30"
+                  )}
+                >
+                  {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
                 </div>
-              )}
-              <span className="text-xl mb-2">{iconMap[service.id] || '💈'}</span>
-              <p className="font-bold text-foreground text-base">{service.name}</p>
-              <p className="text-sm text-muted-foreground mt-0.5 leading-snug">{service.description}</p>
-              <p className="text-lg font-bold text-primary mt-3">
-                R$ {service.price.toFixed(2)}
-              </p>
+              </div>
             </button>
           );
         })}

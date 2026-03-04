@@ -1,5 +1,5 @@
 import { Calendar } from '@/components/ui/calendar';
-import { isSunday, isAfter, startOfDay } from 'date-fns';
+import { isSunday, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface StepDateProps {
@@ -15,9 +15,11 @@ export function StepDate({ selected, onSelect }: StepDateProps) {
   };
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-bold text-foreground">Escolha a data</h2>
-      <p className="text-muted-foreground">Segunda a sábado. Selecione um dia disponível.</p>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-foreground">Escolha a data</h2>
+        <p className="text-sm text-muted-foreground mt-1">Segunda a sábado</p>
+      </div>
       <div className="flex justify-center">
         <Calendar
           mode="single"
@@ -25,7 +27,7 @@ export function StepDate({ selected, onSelect }: StepDateProps) {
           onSelect={onSelect}
           disabled={disabledDays}
           locale={ptBR}
-          className="rounded-lg border border-border bg-card p-3 pointer-events-auto"
+          className="rounded-xl border border-border bg-card p-4 pointer-events-auto"
         />
       </div>
     </div>
