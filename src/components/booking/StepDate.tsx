@@ -27,7 +27,7 @@ export function StepDate({ selected, onSelect }: StepDateProps) {
           onSelect={onSelect}
           disabled={disabledDays}
           locale={ptBR}
-          className="rounded-xl border border-border bg-card p-4 pointer-events-auto"
+          className="rounded-lg border"
         />
       </div>
     </div>
