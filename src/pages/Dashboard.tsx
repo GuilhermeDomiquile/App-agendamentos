@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,9 +16,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ChevronLeft, ChevronRight, Phone, Clock, User, Scissors, Calendar as CalendarIcon, X, CheckCircle2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Phone, Clock, User, Scissors, Calendar as CalendarIcon, X, CheckCircle2, Settings } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, startOfWeek, endOfWeek, isSameMonth, isSameDay, addDays, subDays, addMinutes, parse } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import DashboardServicos from "@/components/dashboard/DashboardServicos";
 
 interface Appointment {
   id: string;
@@ -196,7 +198,22 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <div className="max-w-[1600px] mx-auto p-6 flex gap-6 flex-col lg:flex-row">
+      <div className="max-w-[1600px] mx-auto px-6 pt-4">
+        <Tabs defaultValue="calendario" className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="calendario" className="gap-2">
+              <CalendarIcon className="h-4 w-4" />
+              Calendário
+            </TabsTrigger>
+            <TabsTrigger value="servicos" className="gap-2">
+              <Settings className="h-4 w-4" />
+              Serviços
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="calendario">
+
+      <div className="flex gap-6 flex-col lg:flex-row">
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
             <div className="flex items-center gap-2">
@@ -439,9 +456,15 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+        </div>
+          </TabsContent>
+
+          <TabsContent value="servicos">
+            <DashboardServicos />
+          </TabsContent>
+        </Tabs>
       </div>
 
-      {/* Appointment Details Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
