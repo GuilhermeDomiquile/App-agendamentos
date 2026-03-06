@@ -300,10 +300,18 @@ export default function Dashboard() {
   const EventChip = ({ apt, compact = false }: { apt: Appointment; compact?: boolean }) => {
     return (
       <div
+        draggable={!compact}
+        onDragStart={(e) => {
+          setDraggingApt(apt);
+          e.dataTransfer.effectAllowed = "move";
+        }}
+        onDragEnd={() => { setDraggingApt(null); setDragOver(null); }}
         onClick={(e) => { e.stopPropagation(); openAppointment(apt); }}
-        className="group bg-primary/10 border-l-[3px] border-l-primary rounded-md px-2 py-1 cursor-pointer overflow-hidden
+        className={`group bg-primary/10 border-l-[3px] border-l-primary rounded-md px-2 py-1 cursor-pointer overflow-hidden
           shadow-sm hover:shadow-md hover:bg-primary/20 hover:scale-[1.02]
-          transition-all duration-200 ease-out h-full flex flex-col justify-center"
+          transition-all duration-200 ease-out h-full flex flex-col justify-center
+          ${!compact ? "cursor-grab active:cursor-grabbing" : ""}
+          ${draggingApt?.id === apt.id ? "opacity-40" : ""}`}
       >
         {compact ? (
           <div className="text-[10px] leading-tight text-foreground truncate">
@@ -322,19 +330,29 @@ export default function Dashboard() {
   };
 
   const EmptySlot = ({ dateStr, hora, isFullWidth = false }: { dateStr: string; hora: string; isFullWidth?: boolean }) => {
+    const slotKey = `${dateStr}-${hora}`;
+    const isOver = dragOver === slotKey;
     return (
       <div
+        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOver(slotKey); }}
+        onDragLeave={() => setDragOver(null)}
+        onDrop={(e) => { e.preventDefault(); handleDrop(dateStr, hora); }}
         onClick={(e) => { e.stopPropagation(); openBookingModal(dateStr, hora); }}
         className={`h-full rounded cursor-pointer group/slot border border-transparent
           hover:border-primary/30 hover:bg-primary/5
-          transition-all duration-200 ease-out flex items-center justify-center`}
+          transition-all duration-200 ease-out flex items-center justify-center
+          ${isOver ? "border-primary/50 bg-primary/10 scale-[1.02]" : ""}`}
       >
-        <div className="flex items-center gap-1.5 opacity-0 group-hover/slot:opacity-100 transition-opacity duration-200">
-          <Plus className={`${isFullWidth ? "h-3.5 w-3.5" : "h-3 w-3"} text-primary/60`} />
-          <span className={`${isFullWidth ? "text-xs" : "text-[10px]"} text-primary/60 font-medium`}>
-            {isFullWidth ? "Adicionar agendamento" : "Adicionar"}
-          </span>
-        </div>
+        {isOver ? (
+          <span className="text-xs text-primary font-medium">Soltar aqui</span>
+        ) : (
+          <div className="flex items-center gap-1.5 opacity-0 group-hover/slot:opacity-100 transition-opacity duration-200">
+            <Plus className={`${isFullWidth ? "h-3.5 w-3.5" : "h-3 w-3"} text-primary/60`} />
+            <span className={`${isFullWidth ? "text-xs" : "text-[10px]"} text-primary/60 font-medium`}>
+              {isFullWidth ? "Adicionar agendamento" : "Adicionar"}
+            </span>
+          </div>
+        )}
       </div>
     );
   };
