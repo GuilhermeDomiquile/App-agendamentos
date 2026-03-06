@@ -244,24 +244,13 @@ export default function Dashboard() {
 
   const formatStartTime = (hora: string) => hora?.substring(0, 5) || hora;
 
-  const getStatusStyles = (status: string) => {
-    switch (status) {
-      case 'cancelado':
-        return 'bg-destructive/10 border-l-destructive hover:bg-destructive/20';
-      case 'finalizado':
-        return 'bg-muted/50 border-l-muted-foreground hover:bg-muted/70';
-      default: // confirmado
-        return 'bg-primary/10 border-l-primary hover:bg-primary/20';
-    }
-  };
-
   const EventChip = ({ apt, compact = false }: { apt: Appointment; compact?: boolean }) => {
     return (
       <div
         onClick={(e) => { e.stopPropagation(); openAppointment(apt); }}
-        className={`group ${getStatusStyles(apt.status)} border-l-[3px] rounded-md px-2 py-1 cursor-pointer overflow-hidden
-          shadow-sm hover:shadow-md hover:scale-[1.02]
-          transition-all duration-200 ease-out h-full flex flex-col justify-center`}
+        className="group bg-primary/10 border-l-[3px] border-l-primary rounded-md px-2 py-1 cursor-pointer overflow-hidden
+          shadow-sm hover:shadow-md hover:bg-primary/20 hover:scale-[1.02]
+          transition-all duration-200 ease-out h-full flex flex-col justify-center"
       >
         {compact ? (
           <div className="text-[10px] leading-tight text-foreground truncate">
