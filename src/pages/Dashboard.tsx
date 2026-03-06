@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -157,21 +158,22 @@ export default function Dashboard() {
     if (!bookingForm.servico) return;
     setBookingSubmitting(true);
     try {
+      const horaFormatted = bookingSlot.hora.length === 5 ? `${bookingSlot.hora}:00` : bookingSlot.hora;
       const { error } = await supabase.from("agendamentos").insert({
         nome_cliente: bookingForm.nome_cliente.trim(),
         telefone: bookingForm.telefone.trim() || null,
         servico: bookingForm.servico,
         data: bookingSlot.date,
-        hora: bookingSlot.hora,
+        hora: horaFormatted,
         status: "confirmado",
-        created_at: new Date().toISOString(),
       });
       if (error) throw error;
       setBookingModalOpen(false);
       fetchAppointments();
       fetchRecent();
-    } catch {
-      // silent
+      toast({ title: "Agendamento criado com sucesso" });
+    } catch (err: any) {
+      toast({ title: "Erro ao criar agendamento. Tente novamente.", description: err?.message, variant: "destructive" });
     } finally {
       setBookingSubmitting(false);
     }
