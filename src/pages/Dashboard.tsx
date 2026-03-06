@@ -81,6 +81,11 @@ export default function Dashboard() {
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
   const [servicos, setServicos] = useState<ServicoOption[]>([]);
 
+  // Drag-and-drop state
+  const [draggingApt, setDraggingApt] = useState<Appointment | null>(null);
+  const [dragOver, setDragOver] = useState<string | null>(null);
+  const [isRescheduling, setIsRescheduling] = useState(false);
+
   const fetchAppointments = async () => {
     const { data } = await supabase
       .from("agendamentos")
