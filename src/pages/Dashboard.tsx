@@ -456,9 +456,15 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+        </div>
+          </TabsContent>
+
+          <TabsContent value="servicos">
+            <DashboardServicos />
+          </TabsContent>
+        </Tabs>
       </div>
 
-      {/* Appointment Details Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
