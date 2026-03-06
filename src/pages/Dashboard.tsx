@@ -55,7 +55,7 @@ function getSlotOffset(hora: string, hourStart: number): number {
 
 function generateAllSlots(): string[] {
   const slots: string[] = [];
-  for (let h = 0; h < 24; h++) {
+  for (let h = 6; h < 18; h++) {
     slots.push(`${String(h).padStart(2, "0")}:00`);
     slots.push(`${String(h).padStart(2, "0")}:30`);
   }
