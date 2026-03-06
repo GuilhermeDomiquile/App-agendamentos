@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -298,20 +298,28 @@ export default function Dashboard() {
   const formatStartTime = (hora: string) => hora?.substring(0, 5) || hora;
 
   const EventChip = ({ apt, compact = false }: { apt: Appointment; compact?: boolean }) => {
-    const didDrag = { current: false };
+    const didDragRef = useRef(false);
+
     return (
       <div
         draggable={!compact}
+        onMouseDown={() => { didDragRef.current = false; }}
         onDragStart={(e) => {
-          didDrag.current = true;
+          didDragRef.current = true;
           setDraggingApt(apt);
           e.dataTransfer.effectAllowed = "move";
         }}
-        onDragEnd={() => { setDraggingApt(null); setDragOver(null); }}
-        onMouseDown={() => { didDrag.current = false; }}
+        onDragEnd={() => {
+          didDragRef.current = false;
+          setDraggingApt(null);
+          setDragOver(null);
+        }}
         onClick={(e) => {
           e.stopPropagation();
-          if (!didDrag.current) openAppointment(apt);
+          if (!didDragRef.current && !draggingApt) {
+            openAppointment(apt);
+          }
+          didDragRef.current = false;
         }}
         className={`group bg-primary/10 border-l-[3px] border-l-primary rounded-md px-2 py-1 overflow-hidden
           shadow-sm hover:shadow-md hover:bg-primary/20
