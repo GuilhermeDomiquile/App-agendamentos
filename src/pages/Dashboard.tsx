@@ -298,19 +298,25 @@ export default function Dashboard() {
   const formatStartTime = (hora: string) => hora?.substring(0, 5) || hora;
 
   const EventChip = ({ apt, compact = false }: { apt: Appointment; compact?: boolean }) => {
+    const didDrag = { current: false };
     return (
       <div
         draggable={!compact}
         onDragStart={(e) => {
+          didDrag.current = true;
           setDraggingApt(apt);
           e.dataTransfer.effectAllowed = "move";
         }}
         onDragEnd={() => { setDraggingApt(null); setDragOver(null); }}
-        onClick={(e) => { e.stopPropagation(); openAppointment(apt); }}
-        className={`group bg-primary/10 border-l-[3px] border-l-primary rounded-md px-2 py-1 cursor-pointer overflow-hidden
-          shadow-sm hover:shadow-md hover:bg-primary/20 hover:scale-[1.02]
-          transition-all duration-200 ease-out h-full flex flex-col justify-center
-          ${!compact ? "cursor-grab active:cursor-grabbing" : ""}
+        onMouseDown={() => { didDrag.current = false; }}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (!didDrag.current) openAppointment(apt);
+        }}
+        className={`group bg-primary/10 border-l-[3px] border-l-primary rounded-md px-2 py-1 overflow-hidden
+          shadow-sm hover:shadow-md hover:bg-primary/20
+          transition-all duration-150 ease-out h-full flex flex-col justify-center select-none
+          ${!compact ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}
           ${draggingApt?.id === apt.id ? "opacity-40" : ""}`}
       >
         {compact ? (
