@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -19,6 +19,7 @@ import { ChevronLeft, ChevronRight, Phone, Clock, User, Scissors, Calendar as Ca
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, startOfWeek, endOfWeek, isSameMonth, isSameDay, addDays, subDays, addMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import DashboardServicos from "@/components/dashboard/DashboardServicos";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Appointment {
   id: string;
@@ -62,9 +63,20 @@ function generateAllSlots(): string[] {
   return slots;
 }
 
+function generateMobileSlots(): string[] {
+  const slots: string[] = [];
+  for (let h = 0; h < 24; h++) {
+    slots.push(`${String(h).padStart(2, "0")}:00`);
+    slots.push(`${String(h).padStart(2, "0")}:30`);
+  }
+  return slots;
+}
+
 const ALL_SLOTS = generateAllSlots();
+const MOBILE_SLOTS = generateMobileSlots();
 
 export default function Dashboard() {
+  const isMobile = useIsMobile();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [recentScheduled, setRecentScheduled] = useState<Appointment[]>([]);
   const [recentCancelled, setRecentCancelled] = useState<Appointment[]>([]);
@@ -171,7 +183,6 @@ export default function Dashboard() {
       const { data: inserted, error } = await supabase.from("agendamentos").insert(insertData).select("id").single();
       if (error) throw error;
 
-      // Call webhook for Google Calendar event
       try {
         await fetch("https://n8n.automatizai.site/webhook/appagendamentos", {
           method: "POST",
@@ -201,6 +212,10 @@ export default function Dashboard() {
   };
 
   const navigate = (dir: number) => {
+    if (isMobile) {
+      setCurrentDate(dir > 0 ? addDays(currentDate, 1) : subDays(currentDate, 1));
+      return;
+    }
     if (viewMode === "month") setCurrentDate(dir > 0 ? addMonths(currentDate, 1) : subMonths(currentDate, 1));
     else if (viewMode === "week") setCurrentDate(dir > 0 ? addDays(currentDate, 7) : subDays(currentDate, 7));
     else setCurrentDate(dir > 0 ? addDays(currentDate, 1) : subDays(currentDate, 1));
@@ -218,6 +233,9 @@ export default function Dashboard() {
   };
 
   const headerLabel = useMemo(() => {
+    if (isMobile) {
+      return format(currentDate, "EEEE, d", { locale: ptBR });
+    }
     if (viewMode === "month") return format(currentDate, "MMMM yyyy", { locale: ptBR });
     if (viewMode === "week") {
       const ws = startOfWeek(currentDate, { weekStartsOn: 1 });
@@ -225,7 +243,7 @@ export default function Dashboard() {
       return `${format(ws, "d MMM", { locale: ptBR })} — ${format(we, "d MMM yyyy", { locale: ptBR })}`;
     }
     return format(currentDate, "EEEE, d 'de' MMMM yyyy", { locale: ptBR });
-  }, [currentDate, viewMode]);
+  }, [currentDate, viewMode, isMobile]);
 
   const monthDays = useMemo(() => {
     const ms = startOfMonth(currentDate);
@@ -286,7 +304,7 @@ export default function Dashboard() {
     );
   };
 
-  // For day/week views: render slots
+  // For day/week views: render slots (desktop)
   const renderDayColumn = (dateStr: string, isFullWidth: boolean) => {
     const bookedSlots = getBookedSlotsForDate(dateStr);
     const dayApts = getAppointmentsForDate(dateStr);
@@ -298,10 +316,8 @@ export default function Dashboard() {
             <div className="h-[48px] border-b border-border/30" />
           </div>
         ))}
-        {/* Booked appointments */}
         {dayApts.map((apt) => {
           const top = getSlotOffset(apt.hora, 0);
-          const endTime = getEndTime(apt.hora);
           return (
             <div
               key={apt.id}
@@ -312,7 +328,6 @@ export default function Dashboard() {
             </div>
           );
         })}
-        {/* Available slots — minimal empty clickable areas */}
         {ALL_SLOTS.map((slot) => {
           if (bookedSlots.has(slot)) return null;
           const top = getSlotOffset(slot, 0);
@@ -330,6 +345,349 @@ export default function Dashboard() {
     );
   };
 
+  // Mobile single-day vertical list
+  const renderMobileDayView = () => {
+    const dateStr = format(currentDate, "yyyy-MM-dd");
+    const bookedSlots = getBookedSlotsForDate(dateStr);
+    const dayApts = getAppointmentsForDate(dateStr);
+    const aptMap = new Map<string, Appointment>();
+    dayApts.forEach(a => aptMap.set(a.hora, a));
+
+    return (
+      <div className="divide-y divide-border">
+        {MOBILE_SLOTS.map((slot) => {
+          const apt = aptMap.get(slot) || aptMap.get(`${slot}:00`);
+          const isBooked = bookedSlots.has(slot) || bookedSlots.has(`${slot}:00`);
+
+          return (
+            <div
+              key={slot}
+              className={`flex items-stretch min-h-[56px] transition-colors ${
+                isBooked ? "bg-primary/5" : "hover:bg-secondary/50 active:bg-secondary"
+              }`}
+              onClick={() => !isBooked && openBookingModal(dateStr, slot)}
+            >
+              <div className="w-16 shrink-0 flex items-center justify-center border-r border-border">
+                <span className="text-xs font-medium text-muted-foreground">{slot}</span>
+              </div>
+              <div className="flex-1 px-3 py-2 flex items-center min-w-0">
+                {apt ? (
+                  <div
+                    className="flex-1 bg-primary/10 border-l-[3px] border-l-primary rounded-lg px-3 py-2 min-w-0 active:scale-[0.98] transition-transform"
+                    onClick={(e) => { e.stopPropagation(); openAppointment(apt); }}
+                  >
+                    <div className="text-sm font-medium text-foreground truncate">
+                      {apt.nome_cliente}
+                    </div>
+                    <div className="text-xs text-muted-foreground truncate">{apt.servico}</div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-muted-foreground/50">
+                    <Plus className="h-4 w-4" />
+                    <span className="text-xs">Disponível</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Mobile calendar rendering
+  if (isMobile) {
+    return (
+      <TooltipProvider>
+        <div className="min-h-screen bg-background">
+          {/* Mobile Header */}
+          <header className="border-b border-border px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-lg font-bold text-foreground">Dashboard</h1>
+                <p className="text-xs text-muted-foreground">
+                  {appointments.length} agendamento{appointments.length !== 1 ? "s" : ""}
+                </p>
+              </div>
+            </div>
+          </header>
+
+          <div className="px-4 pt-3 pb-4">
+            <Tabs defaultValue="calendario" className="w-full">
+              <TabsList className="mb-3 w-full">
+                <TabsTrigger value="calendario" className="gap-1.5 flex-1 text-xs">
+                  <CalendarIcon className="h-3.5 w-3.5" />
+                  Calendário
+                </TabsTrigger>
+                <TabsTrigger value="servicos" className="gap-1.5 flex-1 text-xs">
+                  <Settings className="h-3.5 w-3.5" />
+                  Serviços
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="calendario">
+                {/* Mobile Day Navigation */}
+                <div className="flex items-center justify-between mb-3">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => navigate(-1)}
+                    className="h-10 w-10 active:scale-95 transition-transform"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </Button>
+                  <div className="text-center flex-1 mx-2">
+                    <h2 className="text-base font-semibold text-foreground capitalize">{headerLabel}</h2>
+                    <p className="text-xs text-muted-foreground">{format(currentDate, "MMMM yyyy", { locale: ptBR })}</p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => navigate(1)}
+                    className="h-10 w-10 active:scale-95 transition-transform"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </Button>
+                </div>
+
+                {/* Today button */}
+                {!isSameDay(currentDate, new Date()) && (
+                  <div className="flex justify-center mb-3">
+                    <Button variant="ghost" size="sm" onClick={goToday} className="text-xs h-8">
+                      Ir para hoje
+                    </Button>
+                  </div>
+                )}
+
+                {/* Mobile Day Schedule */}
+                <Card className="overflow-hidden">
+                  <CardContent className="p-0">
+                    <ScrollArea className="h-[calc(100vh-280px)]">
+                      {renderMobileDayView()}
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+
+                {/* Mobile Recent Appointments */}
+                <div className="mt-4 space-y-3">
+                  <Card>
+                    <CardHeader className="pb-2 px-4 pt-4">
+                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                        <CalendarIcon className="h-4 w-4 text-primary" />
+                        Recentes
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-4 space-y-2">
+                      {recentScheduled.length === 0 && (
+                        <p className="text-xs text-muted-foreground">Nenhum agendamento recente.</p>
+                      )}
+                      {recentScheduled.slice(0, 3).map((apt) => (
+                        <div
+                          key={apt.id}
+                          className="flex items-center gap-3 p-2.5 rounded-lg bg-secondary/50 active:bg-secondary transition-colors"
+                          onClick={() => openAppointment(apt)}
+                        >
+                          <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                            <User className="h-3.5 w-3.5 text-primary" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-medium text-foreground truncate">{apt.nome_cliente}</div>
+                            <div className="text-xs text-muted-foreground">{apt.servico} · {apt.data} {formatStartTime(apt.hora)}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="servicos">
+                <DashboardServicos />
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          {/* Shared modals rendered below */}
+          {renderModals()}
+        </div>
+      </TooltipProvider>
+    );
+  }
+
+  // Shared modals function
+  function renderModals() {
+    return (
+      <>
+        {/* Appointment Detail Modal */}
+        <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+          <DialogContent className="sm:max-w-md max-w-[calc(100vw-2rem)]">
+            <DialogHeader>
+              <DialogTitle>Detalhes do Agendamento</DialogTitle>
+            </DialogHeader>
+            {selectedAppointment && (
+              <div className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-xs text-muted-foreground">Cliente</div>
+                      <div className="text-sm font-medium truncate">{selectedAppointment.nome_cliente}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-xs text-muted-foreground">Telefone</div>
+                      <div className="text-sm font-medium">{selectedAppointment.telefone || "—"}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Scissors className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-xs text-muted-foreground">Serviço</div>
+                      <div className="text-sm font-medium truncate">{selectedAppointment.servico}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-xs text-muted-foreground">Data e Hora</div>
+                      <div className="text-sm font-medium">{selectedAppointment.data} às {formatStartTime(selectedAppointment.hora)} - {getEndTime(selectedAppointment.hora)}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div>
+                      <div className="text-xs text-muted-foreground">Status</div>
+                      <Badge variant={selectedAppointment.status === "confirmado" ? "default" : selectedAppointment.status === "cancelado" ? "destructive" : "secondary"}>
+                        {selectedAppointment.status === "confirmado" ? "Confirmado" : selectedAppointment.status === "cancelado" ? "Cancelado" : "Finalizado"}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+                {selectedAppointment.status === "confirmado" && (
+                  <DialogFooter className="flex gap-2 sm:gap-2">
+                    <Button
+                      variant="destructive"
+                      className="flex-1 h-11 hover:scale-[1.02] active:scale-[0.98] transition-transform"
+                      onClick={() => setConfirmAction({ type: "cancelado", id: selectedAppointment.id })}
+                    >
+                      <X className="h-4 w-4 mr-1" /> Cancelar
+                    </Button>
+                    <Button
+                      className="flex-1 h-11 hover:scale-[1.02] active:scale-[0.98] transition-transform"
+                      onClick={() => setConfirmAction({ type: "finalizado", id: selectedAppointment.id })}
+                    >
+                      <CheckCircle2 className="h-4 w-4 mr-1" /> Concluir
+                    </Button>
+                  </DialogFooter>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Manual Booking Modal */}
+        <Dialog open={bookingModalOpen} onOpenChange={setBookingModalOpen}>
+          <DialogContent className="sm:max-w-md max-w-[calc(100vw-2rem)]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Plus className="h-5 w-5 text-primary" />
+                Novo Agendamento
+              </DialogTitle>
+            </DialogHeader>
+            {bookingSlot && (
+              <div className="space-y-4">
+                <div className="bg-muted/50 rounded-lg p-3 text-sm">
+                  <span className="text-muted-foreground">Horário: </span>
+                  <span className="font-medium text-foreground">{bookingSlot.date} às {bookingSlot.hora} - {getEndTime(bookingSlot.hora)}</span>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="booking-nome">Nome do Cliente *</Label>
+                  <Input
+                    id="booking-nome"
+                    className="h-11"
+                    value={bookingForm.nome_cliente}
+                    onChange={(e) => setBookingForm({ ...bookingForm, nome_cliente: e.target.value })}
+                    placeholder="Nome completo"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="booking-tel">Telefone</Label>
+                  <Input
+                    id="booking-tel"
+                    className="h-11"
+                    value={bookingForm.telefone}
+                    onChange={(e) => setBookingForm({ ...bookingForm, telefone: e.target.value })}
+                    placeholder="Opcional"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Serviço *</Label>
+                  <Select value={bookingForm.servico} onValueChange={(v) => setBookingForm({ ...bookingForm, servico: v })}>
+                    <SelectTrigger className="h-11">
+                      <SelectValue placeholder="Selecione um serviço" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {servicos.map((s) => (
+                        <SelectItem key={s.id} value={s.nome}>
+                          {s.nome} — R$ {s.preco.toFixed(2)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="booking-obs">Observações</Label>
+                  <Input
+                    id="booking-obs"
+                    className="h-11"
+                    value={bookingForm.observacoes}
+                    onChange={(e) => setBookingForm({ ...bookingForm, observacoes: e.target.value })}
+                    placeholder="Opcional"
+                  />
+                </div>
+              </div>
+            )}
+            <DialogFooter className="gap-2">
+              <Button variant="outline" className="h-11" onClick={() => setBookingModalOpen(false)}>Cancelar</Button>
+              <Button
+                className="h-11"
+                onClick={handleBookingSubmit}
+                disabled={bookingSubmitting || !bookingForm.nome_cliente.trim() || !bookingForm.servico}
+              >
+                {bookingSubmitting ? "Salvando..." : "Confirmar"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Confirmation Alert */}
+        <AlertDialog open={!!confirmAction} onOpenChange={(open) => { if (!open) setConfirmAction(null); }}>
+          <AlertDialogContent className="max-w-[calc(100vw-2rem)]">
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {confirmAction?.type === "cancelado" ? "Cancelar agendamento?" : "Concluir agendamento?"}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {confirmAction?.type === "cancelado"
+                  ? "Tem certeza que deseja cancelar este agendamento? Esta ação não pode ser desfeita."
+                  : "Tem certeza que deseja marcar este agendamento como concluído?"}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="h-11">Voltar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmAction} className="h-11">
+                Confirmar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </>
+    );
+  }
+
+  // Desktop layout
   return (
     <TooltipProvider>
     <div className="min-h-screen bg-background">
@@ -559,167 +917,7 @@ export default function Dashboard() {
         </Tabs>
       </div>
 
-      {/* Appointment Detail Modal */}
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Detalhes do Agendamento</DialogTitle>
-          </DialogHeader>
-          {selectedAppointment && (
-            <div className="space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <div className="text-xs text-muted-foreground">Cliente</div>
-                    <div className="text-sm font-medium">{selectedAppointment.nome_cliente}</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <div className="text-xs text-muted-foreground">Telefone</div>
-                    <div className="text-sm font-medium">{selectedAppointment.telefone || "—"}</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Scissors className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <div className="text-xs text-muted-foreground">Serviço</div>
-                    <div className="text-sm font-medium">{selectedAppointment.servico}</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <div className="text-xs text-muted-foreground">Data e Hora</div>
-                    <div className="text-sm font-medium">{selectedAppointment.data} às {selectedAppointment.hora} - {getEndTime(selectedAppointment.hora)}</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <div className="text-xs text-muted-foreground">Status</div>
-                    <Badge variant={selectedAppointment.status === "confirmado" ? "default" : selectedAppointment.status === "cancelado" ? "destructive" : "secondary"}>
-                      {selectedAppointment.status === "confirmado" ? "Confirmado" : selectedAppointment.status === "cancelado" ? "Cancelado" : "Finalizado"}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-              {selectedAppointment.status === "confirmado" && (
-                <DialogFooter className="flex gap-2 sm:gap-2">
-                  <Button
-                    variant="destructive"
-                    className="flex-1 hover:scale-[1.02] transition-transform"
-                    onClick={() => setConfirmAction({ type: "cancelado", id: selectedAppointment.id })}
-                  >
-                    <X className="h-4 w-4 mr-1" /> Cancelar
-                  </Button>
-                  <Button
-                    className="flex-1 hover:scale-[1.02] transition-transform"
-                    onClick={() => setConfirmAction({ type: "finalizado", id: selectedAppointment.id })}
-                  >
-                    <CheckCircle2 className="h-4 w-4 mr-1" /> Concluir
-                  </Button>
-                </DialogFooter>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Manual Booking Modal */}
-      <Dialog open={bookingModalOpen} onOpenChange={setBookingModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5 text-primary" />
-              Novo Agendamento
-            </DialogTitle>
-          </DialogHeader>
-          {bookingSlot && (
-            <div className="space-y-4">
-              <div className="bg-muted/50 rounded-lg p-3 text-sm">
-                <span className="text-muted-foreground">Horário: </span>
-                <span className="font-medium text-foreground">{bookingSlot.date} às {bookingSlot.hora} - {getEndTime(bookingSlot.hora)}</span>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="booking-nome">Nome do Cliente *</Label>
-                <Input
-                  id="booking-nome"
-                  value={bookingForm.nome_cliente}
-                  onChange={(e) => setBookingForm({ ...bookingForm, nome_cliente: e.target.value })}
-                  placeholder="Nome completo"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="booking-tel">Telefone</Label>
-                <Input
-                  id="booking-tel"
-                  value={bookingForm.telefone}
-                  onChange={(e) => setBookingForm({ ...bookingForm, telefone: e.target.value })}
-                  placeholder="Opcional"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Serviço *</Label>
-                <Select value={bookingForm.servico} onValueChange={(v) => setBookingForm({ ...bookingForm, servico: v })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um serviço" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {servicos.map((s) => (
-                      <SelectItem key={s.id} value={s.nome}>
-                        {s.nome} — R$ {s.preco.toFixed(2)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="booking-obs">Observações</Label>
-                <Input
-                  id="booking-obs"
-                  value={bookingForm.observacoes}
-                  onChange={(e) => setBookingForm({ ...bookingForm, observacoes: e.target.value })}
-                  placeholder="Opcional"
-                />
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setBookingModalOpen(false)}>Cancelar</Button>
-            <Button
-              onClick={handleBookingSubmit}
-              disabled={bookingSubmitting || !bookingForm.nome_cliente.trim() || !bookingForm.servico}
-            >
-              {bookingSubmitting ? "Salvando..." : "Confirmar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Confirmation Alert */}
-      <AlertDialog open={!!confirmAction} onOpenChange={(open) => { if (!open) setConfirmAction(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {confirmAction?.type === "cancelado" ? "Cancelar agendamento?" : "Concluir agendamento?"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirmAction?.type === "cancelado"
-                ? "Tem certeza que deseja cancelar este agendamento? Esta ação não pode ser desfeita."
-                : "Tem certeza que deseja marcar este agendamento como concluído?"}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Voltar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmAction}>
-              Confirmar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {renderModals()}
     </div>
     </TooltipProvider>
   );
