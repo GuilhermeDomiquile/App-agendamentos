@@ -25,7 +25,7 @@ export function StepService({ selected, onSelect }: StepServiceProps) {
         .from('servicos')
         .select('id, nome, preco')
         .eq('ativo', true)
-        .order('nome');
+        .order('ordem', { ascending: true });
       if (data) setServices(data);
       setLoading(false);
     };

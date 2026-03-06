@@ -3,21 +3,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ChevronLeft, ChevronRight, Phone, Clock, User, Scissors, Calendar as CalendarIcon, X, CheckCircle2, Settings } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, startOfWeek, endOfWeek, isSameMonth, isSameDay, addDays, subDays, addMinutes, parse } from "date-fns";
+import { ChevronLeft, ChevronRight, Phone, Clock, User, Scissors, Calendar as CalendarIcon, X, CheckCircle2, Settings, Plus } from "lucide-react";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, startOfWeek, endOfWeek, isSameMonth, isSameDay, addDays, subDays, addMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import DashboardServicos from "@/components/dashboard/DashboardServicos";
 
@@ -31,10 +29,16 @@ interface Appointment {
   status: string;
 }
 
+interface ServicoOption {
+  id: number;
+  nome: string;
+  preco: number;
+}
+
 type ViewMode = "month" | "week" | "day";
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
-const SLOT_HEIGHT = 48; // px per 30min slot
+const SLOT_HEIGHT = 48;
 
 function getEndTime(hora: string): string {
   const [h, m] = hora.split(":").map(Number);
@@ -48,6 +52,17 @@ function getSlotOffset(hora: string, hourStart: number): number {
   return ((h - hourStart) * 2 + m / 30) * SLOT_HEIGHT;
 }
 
+function generateAllSlots(): string[] {
+  const slots: string[] = [];
+  for (let h = 0; h < 24; h++) {
+    slots.push(`${String(h).padStart(2, "0")}:00`);
+    slots.push(`${String(h).padStart(2, "0")}:30`);
+  }
+  return slots;
+}
+
+const ALL_SLOTS = generateAllSlots();
+
 export default function Dashboard() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [recentScheduled, setRecentScheduled] = useState<Appointment[]>([]);
@@ -57,6 +72,13 @@ export default function Dashboard() {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ type: "cancelado" | "finalizado"; id: string } | null>(null);
+
+  // Manual booking state
+  const [bookingModalOpen, setBookingModalOpen] = useState(false);
+  const [bookingSlot, setBookingSlot] = useState<{ date: string; hora: string } | null>(null);
+  const [bookingForm, setBookingForm] = useState({ nome_cliente: "", telefone: "", servico: "", observacoes: "" });
+  const [bookingSubmitting, setBookingSubmitting] = useState(false);
+  const [servicos, setServicos] = useState<ServicoOption[]>([]);
 
   const fetchAppointments = async () => {
     const { data } = await supabase
@@ -86,9 +108,19 @@ export default function Dashboard() {
     if (cancelled) setRecentCancelled(cancelled);
   };
 
+  const fetchServicos = async () => {
+    const { data } = await supabase
+      .from("servicos")
+      .select("id, nome, preco")
+      .eq("ativo", true)
+      .order("ordem", { ascending: true });
+    if (data) setServicos(data);
+  };
+
   useEffect(() => {
     fetchAppointments();
     fetchRecent();
+    fetchServicos();
     const channel = supabase
       .channel("agendamentos-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "agendamentos" }, () => {
@@ -114,6 +146,37 @@ export default function Dashboard() {
     setModalOpen(true);
   };
 
+  const openBookingModal = (dateStr: string, hora: string) => {
+    setBookingSlot({ date: dateStr, hora });
+    setBookingForm({ nome_cliente: "", telefone: "", servico: "", observacoes: "" });
+    setBookingModalOpen(true);
+  };
+
+  const handleBookingSubmit = async () => {
+    if (!bookingSlot || !bookingForm.nome_cliente.trim()) return;
+    if (!bookingForm.servico) return;
+    setBookingSubmitting(true);
+    try {
+      const { error } = await supabase.from("agendamentos").insert({
+        nome_cliente: bookingForm.nome_cliente.trim(),
+        telefone: bookingForm.telefone.trim() || null,
+        servico: bookingForm.servico,
+        data: bookingSlot.date,
+        hora: bookingSlot.hora,
+        status: "confirmado",
+        created_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+      setBookingModalOpen(false);
+      fetchAppointments();
+      fetchRecent();
+    } catch {
+      // silent
+    } finally {
+      setBookingSubmitting(false);
+    }
+  };
+
   const navigate = (dir: number) => {
     if (viewMode === "month") setCurrentDate(dir > 0 ? addMonths(currentDate, 1) : subMonths(currentDate, 1));
     else if (viewMode === "week") setCurrentDate(dir > 0 ? addDays(currentDate, 7) : subDays(currentDate, 7));
@@ -125,15 +188,11 @@ export default function Dashboard() {
   const getAppointmentsForDate = (date: string) =>
     appointments.filter((a) => a.data === date);
 
-  const getAppointmentsForDateAndHour = (date: string, hour: number) =>
-    appointments.filter((a) => {
-      const h = parseInt(a.hora.split(":")[0]);
-      const m = parseInt(a.hora.split(":")[1]);
-      return a.data === date && (h === hour || (h === hour - 1 && m >= 30 && false));
-    }).filter((a) => {
-      const h = parseInt(a.hora.split(":")[0]);
-      return h === hour;
-    });
+  const getBookedSlotsForDate = (date: string): Set<string> => {
+    const booked = new Set<string>();
+    appointments.filter(a => a.data === date).forEach(a => booked.add(a.hora));
+    return booked;
+  };
 
   const headerLabel = useMemo(() => {
     if (viewMode === "month") return format(currentDate, "MMMM yyyy", { locale: ptBR });
@@ -184,7 +243,102 @@ export default function Dashboard() {
     );
   };
 
+  const AvailableSlotChip = ({ dateStr, hora, compact = false }: { dateStr: string; hora: string; compact?: boolean }) => {
+    const endTime = getEndTime(hora);
+    return (
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div
+              onClick={(e) => { e.stopPropagation(); openBookingModal(dateStr, hora); }}
+              className="bg-green-500/10 border-l-[3px] border-l-green-500 rounded-md px-2 py-1 cursor-pointer
+                hover:bg-green-500/20 hover:shadow-sm hover:scale-[1.01]
+                transition-all duration-200 ease-out"
+            >
+              {compact ? (
+                <div className="text-[10px] leading-tight text-green-700 dark:text-green-400 truncate">
+                  {hora} Disponível
+                </div>
+              ) : (
+                <>
+                  <div className="text-[10px] font-semibold text-green-700 dark:text-green-400">{hora} - {endTime}</div>
+                  <div className="text-xs font-medium text-green-700 dark:text-green-400">Disponível</div>
+                </>
+              )}
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <p className="text-xs">Clique para adicionar agendamento</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
+  // For day/week views: render slots
+  const renderDayColumn = (dateStr: string, isFullWidth: boolean) => {
+    const bookedSlots = getBookedSlotsForDate(dateStr);
+    const dayApts = getAppointmentsForDate(dateStr);
+
+    return (
+      <div className="relative">
+        {HOURS.map((hour) => (
+          <div key={hour} className="h-[96px] border-b border-border">
+            <div className="h-[48px] border-b border-border/30" />
+          </div>
+        ))}
+        {/* Booked appointments */}
+        {dayApts.map((apt) => {
+          const top = getSlotOffset(apt.hora, 0);
+          const endTime = getEndTime(apt.hora);
+          return (
+            <div
+              key={apt.id}
+              className={`absolute ${isFullWidth ? "left-1 right-4" : "left-0.5 right-0.5"} z-10`}
+              style={{ top: `${top}px`, height: `${SLOT_HEIGHT}px` }}
+            >
+              {isFullWidth ? (
+                <div
+                  onClick={() => openAppointment(apt)}
+                  className="h-full bg-primary/10 border-l-[3px] border-l-primary rounded-md px-3 py-1.5 cursor-pointer
+                    shadow-sm hover:shadow-md hover:bg-primary/20 hover:scale-[1.01]
+                    transition-all duration-200 ease-out flex items-center gap-3"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[10px] font-semibold text-primary">{apt.hora} - {endTime}</div>
+                    <div className="text-sm font-medium text-foreground truncate">{apt.nome_cliente}</div>
+                    <div className="text-xs text-muted-foreground truncate">{apt.servico}</div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-[10px] text-muted-foreground">{apt.telefone}</div>
+                  </div>
+                </div>
+              ) : (
+                <EventChip apt={apt} />
+              )}
+            </div>
+          );
+        })}
+        {/* Available slots */}
+        {ALL_SLOTS.map((slot) => {
+          if (bookedSlots.has(slot)) return null;
+          const top = getSlotOffset(slot, 0);
+          return (
+            <div
+              key={`avail-${slot}`}
+              className={`absolute ${isFullWidth ? "left-1 right-4" : "left-0.5 right-0.5"} z-[5]`}
+              style={{ top: `${top}px`, height: `${SLOT_HEIGHT}px` }}
+            >
+              <AvailableSlotChip dateStr={dateStr} hora={slot} compact={!isFullWidth} />
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
+    <TooltipProvider>
     <div className="min-h-screen bg-background">
       <header className="border-b border-border px-6 py-4">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between">
@@ -212,7 +366,6 @@ export default function Dashboard() {
           </TabsList>
 
           <TabsContent value="calendario">
-
       <div className="flex gap-6 flex-col lg:flex-row">
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
@@ -311,26 +464,9 @@ export default function Dashboard() {
                       </div>
                       {weekDays.map((day, di) => {
                         const dateStr = format(day, "yyyy-MM-dd");
-                        const dayApts = getAppointmentsForDate(dateStr);
                         return (
                           <div key={di} className="relative border-r border-border last:border-r-0">
-                            {HOURS.map((hour) => (
-                              <div key={hour} className="h-[96px] border-b border-border">
-                                <div className="h-[48px] border-b border-border/30" />
-                              </div>
-                            ))}
-                            {dayApts.map((apt) => {
-                              const top = getSlotOffset(apt.hora, 0);
-                              return (
-                                <div
-                                  key={apt.id}
-                                  className="absolute left-0.5 right-0.5 z-10"
-                                  style={{ top: `${top}px`, height: `${SLOT_HEIGHT}px` }}
-                                >
-                                  <EventChip apt={apt} />
-                                </div>
-                              );
-                            })}
+                            {renderDayColumn(dateStr, false)}
                           </div>
                         );
                       })}
@@ -341,50 +477,15 @@ export default function Dashboard() {
 
               {viewMode === "day" && (
                 <ScrollArea className="h-[600px]">
-                  <div className="relative">
-                    <div className="grid grid-cols-[60px_1fr]">
-                      <div>
-                        {HOURS.map((hour) => (
-                          <div key={hour} className="h-[96px] text-xs text-muted-foreground text-right pr-3 pt-1 border-r border-border border-b">
-                            {String(hour).padStart(2, "0")}:00
-                          </div>
-                        ))}
-                      </div>
-                      <div className="relative">
-                        {HOURS.map((hour) => (
-                          <div key={hour} className="h-[96px] border-b border-border">
-                            <div className="h-[48px] border-b border-border/30" />
-                          </div>
-                        ))}
-                        {getAppointmentsForDate(format(currentDate, "yyyy-MM-dd")).map((apt) => {
-                          const top = getSlotOffset(apt.hora, 0);
-                          const endTime = getEndTime(apt.hora);
-                          return (
-                            <div
-                              key={apt.id}
-                              className="absolute left-1 right-4 z-10"
-                              style={{ top: `${top}px`, height: `${SLOT_HEIGHT}px` }}
-                            >
-                              <div
-                                onClick={() => openAppointment(apt)}
-                                className="h-full bg-primary/10 border-l-[3px] border-l-primary rounded-md px-3 py-1.5 cursor-pointer
-                                  shadow-sm hover:shadow-md hover:bg-primary/20 hover:scale-[1.01]
-                                  transition-all duration-200 ease-out flex items-center gap-3"
-                              >
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-[10px] font-semibold text-primary">{apt.hora} - {endTime}</div>
-                                  <div className="text-sm font-medium text-foreground truncate">{apt.nome_cliente}</div>
-                                  <div className="text-xs text-muted-foreground truncate">{apt.servico}</div>
-                                </div>
-                                <div className="text-right shrink-0">
-                                  <div className="text-[10px] text-muted-foreground">{apt.telefone}</div>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                  <div className="grid grid-cols-[60px_1fr]">
+                    <div>
+                      {HOURS.map((hour) => (
+                        <div key={hour} className="h-[96px] text-xs text-muted-foreground text-right pr-3 pt-1 border-r border-border border-b">
+                          {String(hour).padStart(2, "0")}:00
+                        </div>
+                      ))}
                     </div>
+                    {renderDayColumn(format(currentDate, "yyyy-MM-dd"), true)}
                   </div>
                 </ScrollArea>
               )}
@@ -456,7 +557,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
-        </div>
+      </div>
           </TabsContent>
 
           <TabsContent value="servicos">
@@ -465,6 +566,7 @@ export default function Dashboard() {
         </Tabs>
       </div>
 
+      {/* Appointment Detail Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -484,7 +586,7 @@ export default function Dashboard() {
                   <Phone className="h-4 w-4 text-muted-foreground" />
                   <div>
                     <div className="text-xs text-muted-foreground">Telefone</div>
-                    <div className="text-sm font-medium">{selectedAppointment.telefone}</div>
+                    <div className="text-sm font-medium">{selectedAppointment.telefone || "—"}</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -533,6 +635,77 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
+      {/* Manual Booking Modal */}
+      <Dialog open={bookingModalOpen} onOpenChange={setBookingModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5 text-primary" />
+              Novo Agendamento
+            </DialogTitle>
+          </DialogHeader>
+          {bookingSlot && (
+            <div className="space-y-4">
+              <div className="bg-muted/50 rounded-lg p-3 text-sm">
+                <span className="text-muted-foreground">Horário: </span>
+                <span className="font-medium text-foreground">{bookingSlot.date} às {bookingSlot.hora} - {getEndTime(bookingSlot.hora)}</span>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="booking-nome">Nome do Cliente *</Label>
+                <Input
+                  id="booking-nome"
+                  value={bookingForm.nome_cliente}
+                  onChange={(e) => setBookingForm({ ...bookingForm, nome_cliente: e.target.value })}
+                  placeholder="Nome completo"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="booking-tel">Telefone</Label>
+                <Input
+                  id="booking-tel"
+                  value={bookingForm.telefone}
+                  onChange={(e) => setBookingForm({ ...bookingForm, telefone: e.target.value })}
+                  placeholder="Opcional"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Serviço *</Label>
+                <Select value={bookingForm.servico} onValueChange={(v) => setBookingForm({ ...bookingForm, servico: v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um serviço" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {servicos.map((s) => (
+                      <SelectItem key={s.id} value={s.nome}>
+                        {s.nome} — R$ {s.preco.toFixed(2)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="booking-obs">Observações</Label>
+                <Input
+                  id="booking-obs"
+                  value={bookingForm.observacoes}
+                  onChange={(e) => setBookingForm({ ...bookingForm, observacoes: e.target.value })}
+                  placeholder="Opcional"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBookingModalOpen(false)}>Cancelar</Button>
+            <Button
+              onClick={handleBookingSubmit}
+              disabled={bookingSubmitting || !bookingForm.nome_cliente.trim() || !bookingForm.servico}
+            >
+              {bookingSubmitting ? "Salvando..." : "Confirmar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Confirmation Alert */}
       <AlertDialog open={!!confirmAction} onOpenChange={(open) => { if (!open) setConfirmAction(null); }}>
         <AlertDialogContent>
@@ -555,5 +728,6 @@ export default function Dashboard() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </TooltipProvider>
   );
 }
