@@ -198,6 +198,21 @@ export default function Dashboard() {
         </div>
       </header>
 
+      <div className="max-w-[1600px] mx-auto px-6 pt-4">
+        <Tabs defaultValue="calendario" className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="calendario" className="gap-2">
+              <CalendarIcon className="h-4 w-4" />
+              Calendário
+            </TabsTrigger>
+            <TabsTrigger value="servicos" className="gap-2">
+              <Settings className="h-4 w-4" />
+              Serviços
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="calendario">
+
       <div className="max-w-[1600px] mx-auto p-6 flex gap-6 flex-col lg:flex-row">
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
