@@ -242,24 +242,26 @@ export default function Dashboard() {
 
   const dayNames = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
+  const formatStartTime = (hora: string) => hora?.substring(0, 5) || hora;
+
   const EventChip = ({ apt, compact = false }: { apt: Appointment; compact?: boolean }) => {
-    const endTime = getEndTime(apt.hora);
     return (
       <div
         onClick={(e) => { e.stopPropagation(); openAppointment(apt); }}
-        className="group bg-primary/10 border-l-[3px] border-l-primary rounded-md px-2 py-1 cursor-pointer
+        className="group bg-primary/10 border-l-[3px] border-l-primary rounded-md px-2 py-1 cursor-pointer overflow-hidden
           shadow-sm hover:shadow-md hover:bg-primary/20 hover:scale-[1.02]
-          transition-all duration-200 ease-out"
+          transition-all duration-200 ease-out h-full flex flex-col justify-center"
       >
         {compact ? (
           <div className="text-[10px] leading-tight text-foreground truncate">
-            {apt.hora} {apt.nome_cliente}
+            {formatStartTime(apt.hora)} {apt.nome_cliente}
           </div>
         ) : (
           <>
-            <div className="text-[10px] font-semibold text-primary">{apt.hora} - {endTime}</div>
-            <div className="text-xs font-medium text-foreground truncate">{apt.nome_cliente}</div>
-            <div className="text-[10px] text-muted-foreground truncate">{apt.servico}</div>
+            <div className="text-xs font-medium text-foreground truncate leading-tight">
+              {formatStartTime(apt.hora)} {apt.nome_cliente}
+            </div>
+            <div className="text-[10px] text-muted-foreground truncate leading-tight">{apt.servico}</div>
           </>
         )}
       </div>
@@ -306,25 +308,7 @@ export default function Dashboard() {
               className={`absolute ${isFullWidth ? "left-1 right-4" : "left-0.5 right-0.5"} z-10`}
               style={{ top: `${top}px`, height: `${SLOT_HEIGHT}px` }}
             >
-              {isFullWidth ? (
-                <div
-                  onClick={() => openAppointment(apt)}
-                  className="h-full bg-primary/10 border-l-[3px] border-l-primary rounded-md px-3 py-1.5 cursor-pointer
-                    shadow-sm hover:shadow-md hover:bg-primary/20 hover:scale-[1.01]
-                    transition-all duration-200 ease-out flex items-center gap-3"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[10px] font-semibold text-primary">{apt.hora} - {endTime}</div>
-                    <div className="text-sm font-medium text-foreground truncate">{apt.nome_cliente}</div>
-                    <div className="text-xs text-muted-foreground truncate">{apt.servico}</div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="text-[10px] text-muted-foreground">{apt.telefone}</div>
-                  </div>
-                </div>
-              ) : (
-                <EventChip apt={apt} />
-              )}
+              <EventChip apt={apt} />
             </div>
           );
         })}
