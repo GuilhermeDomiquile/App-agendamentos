@@ -159,15 +159,36 @@ export default function Dashboard() {
     setBookingSubmitting(true);
     try {
       const horaFormatted = bookingSlot.hora.length === 5 ? `${bookingSlot.hora}:00` : bookingSlot.hora;
-      const { error } = await supabase.from("agendamentos").insert({
+      const telefone = bookingForm.telefone.trim() || null;
+      const insertData = {
         nome_cliente: bookingForm.nome_cliente.trim(),
-        telefone: bookingForm.telefone.trim() || null,
+        telefone,
         servico: bookingForm.servico,
         data: bookingSlot.date,
         hora: horaFormatted,
         status: "confirmado",
-      });
+      };
+      const { data: inserted, error } = await supabase.from("agendamentos").insert(insertData).select("id").single();
       if (error) throw error;
+
+      // Call webhook for Google Calendar event
+      try {
+        await fetch("https://n8n.automatizai.site/webhook/appagendamentos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            agendamento_id: inserted.id,
+            telefone: telefone,
+            nome_cliente: insertData.nome_cliente,
+            servico: insertData.servico,
+            data: insertData.data,
+            hora: horaFormatted,
+          }),
+        });
+      } catch {
+        toast({ title: "Erro ao criar evento no calendário", variant: "destructive" });
+      }
+
       setBookingModalOpen(false);
       fetchAppointments();
       fetchRecent();
