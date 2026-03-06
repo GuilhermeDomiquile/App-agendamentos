@@ -213,7 +213,7 @@ export default function Dashboard() {
 
           <TabsContent value="calendario">
 
-      <div className="max-w-[1600px] mx-auto p-6 flex gap-6 flex-col lg:flex-row">
+      <div className="flex gap-6 flex-col lg:flex-row">
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
             <div className="flex items-center gap-2">
