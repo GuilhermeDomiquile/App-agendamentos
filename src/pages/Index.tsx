@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Service } from '@/data/services';
 import { StepService } from '@/components/booking/StepService';
 import { StepDate } from '@/components/booking/StepDate';
 import { StepTime } from '@/components/booking/StepTime';
@@ -21,7 +20,7 @@ interface CustomerInfo {
 
 const Index = () => {
   const [step, setStep] = useState(1);
-  const [service, setService] = useState<Service | null>(null);
+  const [service, setService] = useState<{ name: string; price: number } | null>(null);
   const [date, setDate] = useState<Date | undefined>();
   const [time, setTime] = useState<string | null>(null);
   const [info, setInfo] = useState<CustomerInfo>({ name: '', phone: '' });
