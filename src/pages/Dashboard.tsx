@@ -243,35 +243,21 @@ export default function Dashboard() {
     );
   };
 
-  const AvailableSlotChip = ({ dateStr, hora, compact = false }: { dateStr: string; hora: string; compact?: boolean }) => {
-    const endTime = getEndTime(hora);
+  const EmptySlot = ({ dateStr, hora, isFullWidth = false }: { dateStr: string; hora: string; isFullWidth?: boolean }) => {
     return (
-      <TooltipProvider delayDuration={200}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div
-              onClick={(e) => { e.stopPropagation(); openBookingModal(dateStr, hora); }}
-              className="bg-green-500/10 border-l-[3px] border-l-green-500 rounded-md px-2 py-1 cursor-pointer
-                hover:bg-green-500/20 hover:shadow-sm hover:scale-[1.01]
-                transition-all duration-200 ease-out"
-            >
-              {compact ? (
-                <div className="text-[10px] leading-tight text-green-700 dark:text-green-400 truncate">
-                  {hora} Disponível
-                </div>
-              ) : (
-                <>
-                  <div className="text-[10px] font-semibold text-green-700 dark:text-green-400">{hora} - {endTime}</div>
-                  <div className="text-xs font-medium text-green-700 dark:text-green-400">Disponível</div>
-                </>
-              )}
-            </div>
-          </TooltipTrigger>
-          <TooltipContent side="top">
-            <p className="text-xs">Clique para adicionar agendamento</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <div
+        onClick={(e) => { e.stopPropagation(); openBookingModal(dateStr, hora); }}
+        className={`h-full rounded cursor-pointer group/slot border border-transparent
+          hover:border-primary/30 hover:bg-primary/5
+          transition-all duration-200 ease-out flex items-center justify-center`}
+      >
+        <div className="flex items-center gap-1.5 opacity-0 group-hover/slot:opacity-100 transition-opacity duration-200">
+          <Plus className={`${isFullWidth ? "h-3.5 w-3.5" : "h-3 w-3"} text-primary/60`} />
+          <span className={`${isFullWidth ? "text-xs" : "text-[10px]"} text-primary/60 font-medium`}>
+            {isFullWidth ? "Adicionar agendamento" : "Adicionar"}
+          </span>
+        </div>
+      </div>
     );
   };
 
@@ -319,7 +305,7 @@ export default function Dashboard() {
             </div>
           );
         })}
-        {/* Available slots */}
+        {/* Available slots — minimal empty clickable areas */}
         {ALL_SLOTS.map((slot) => {
           if (bookedSlots.has(slot)) return null;
           const top = getSlotOffset(slot, 0);
@@ -329,7 +315,7 @@ export default function Dashboard() {
               className={`absolute ${isFullWidth ? "left-1 right-4" : "left-0.5 right-0.5"} z-[5]`}
               style={{ top: `${top}px`, height: `${SLOT_HEIGHT}px` }}
             >
-              <AvailableSlotChip dateStr={dateStr} hora={slot} compact={!isFullWidth} />
+              <EmptySlot dateStr={dateStr} hora={slot} isFullWidth={isFullWidth} />
             </div>
           );
         })}
