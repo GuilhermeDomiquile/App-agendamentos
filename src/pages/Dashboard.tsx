@@ -5,8 +5,18 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ChevronLeft, ChevronRight, Phone, Clock, User, Scissors, Calendar as CalendarIcon, X, CheckCircle2 } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, startOfWeek, endOfWeek, isSameMonth, isSameDay, addDays, subDays } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, startOfWeek, endOfWeek, isSameMonth, isSameDay, addDays, subDays, addMinutes, parse } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface Appointment {
@@ -21,7 +31,20 @@ interface Appointment {
 
 type ViewMode = "month" | "week" | "day";
 
-const HOURS = Array.from({ length: 13 }, (_, i) => i + 8);
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
+const SLOT_HEIGHT = 48; // px per 30min slot
+
+function getEndTime(hora: string): string {
+  const [h, m] = hora.split(":").map(Number);
+  const start = new Date(2000, 0, 1, h, m);
+  const end = addMinutes(start, 30);
+  return format(end, "HH:mm");
+}
+
+function getSlotOffset(hora: string, hourStart: number): number {
+  const [h, m] = hora.split(":").map(Number);
+  return ((h - hourStart) * 2 + m / 30) * SLOT_HEIGHT;
+}
 
 export default function Dashboard() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -31,6 +54,7 @@ export default function Dashboard() {
   const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{ type: "cancelado" | "finalizado"; id: string } | null>(null);
 
   const fetchAppointments = async () => {
     const { data } = await supabase
@@ -63,7 +87,6 @@ export default function Dashboard() {
   useEffect(() => {
     fetchAppointments();
     fetchRecent();
-
     const channel = supabase
       .channel("agendamentos-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "agendamentos" }, () => {
@@ -71,12 +94,13 @@ export default function Dashboard() {
         fetchRecent();
       })
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  const updateStatus = async (id: string, status: string) => {
-    await supabase.from("agendamentos").update({ status }).eq("id", id);
+  const handleConfirmAction = async () => {
+    if (!confirmAction) return;
+    await supabase.from("agendamentos").update({ status: confirmAction.type }).eq("id", confirmAction.id);
+    setConfirmAction(null);
     setModalOpen(false);
     setSelectedAppointment(null);
     fetchAppointments();
@@ -100,7 +124,14 @@ export default function Dashboard() {
     appointments.filter((a) => a.data === date);
 
   const getAppointmentsForDateAndHour = (date: string, hour: number) =>
-    appointments.filter((a) => a.data === date && parseInt(a.hora.split(":")[0]) === hour);
+    appointments.filter((a) => {
+      const h = parseInt(a.hora.split(":")[0]);
+      const m = parseInt(a.hora.split(":")[1]);
+      return a.data === date && (h === hour || (h === hour - 1 && m >= 30 && false));
+    }).filter((a) => {
+      const h = parseInt(a.hora.split(":")[0]);
+      return h === hour;
+    });
 
   const headerLabel = useMemo(() => {
     if (viewMode === "month") return format(currentDate, "MMMM yyyy", { locale: ptBR });
@@ -127,6 +158,30 @@ export default function Dashboard() {
 
   const dayNames = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
+  const EventChip = ({ apt, compact = false }: { apt: Appointment; compact?: boolean }) => {
+    const endTime = getEndTime(apt.hora);
+    return (
+      <div
+        onClick={(e) => { e.stopPropagation(); openAppointment(apt); }}
+        className="group bg-primary/10 border-l-[3px] border-l-primary rounded-md px-2 py-1 cursor-pointer
+          shadow-sm hover:shadow-md hover:bg-primary/20 hover:scale-[1.02]
+          transition-all duration-200 ease-out"
+      >
+        {compact ? (
+          <div className="text-[10px] leading-tight text-foreground truncate">
+            {apt.hora} {apt.nome_cliente}
+          </div>
+        ) : (
+          <>
+            <div className="text-[10px] font-semibold text-primary">{apt.hora} - {endTime}</div>
+            <div className="text-xs font-medium text-foreground truncate">{apt.nome_cliente}</div>
+            <div className="text-[10px] text-muted-foreground truncate">{apt.servico}</div>
+          </>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border px-6 py-4">
@@ -145,13 +200,13 @@ export default function Dashboard() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" onClick={() => navigate(-1)} className="h-9 w-9">
+              <Button variant="outline" size="icon" onClick={() => navigate(-1)} className="h-9 w-9 hover:scale-105 transition-transform">
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <Button variant="outline" size="icon" onClick={() => navigate(1)} className="h-9 w-9">
+              <Button variant="outline" size="icon" onClick={() => navigate(1)} className="h-9 w-9 hover:scale-105 transition-transform">
                 <ChevronRight className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="sm" onClick={goToday}>Hoje</Button>
+              <Button variant="ghost" size="sm" onClick={goToday} className="hover:scale-105 transition-transform">Hoje</Button>
               <h2 className="text-lg font-semibold text-foreground capitalize ml-2">{headerLabel}</h2>
             </div>
             <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
@@ -161,7 +216,7 @@ export default function Dashboard() {
                   variant={viewMode === mode ? "default" : "ghost"}
                   size="sm"
                   onClick={() => setViewMode(mode)}
-                  className="text-xs capitalize"
+                  className="text-xs capitalize transition-all duration-200"
                 >
                   {mode === "month" ? "Mês" : mode === "week" ? "Semana" : "Dia"}
                 </Button>
@@ -187,7 +242,7 @@ export default function Dashboard() {
                       return (
                         <div
                           key={i}
-                          className={`min-h-[100px] border-r border-b border-border last:border-r-0 p-1.5 cursor-pointer transition-colors hover:bg-secondary/50 ${!isCurrentMonth ? "opacity-40" : ""}`}
+                          className={`min-h-[100px] border-r border-b border-border last:border-r-0 p-1.5 cursor-pointer transition-all duration-200 hover:bg-secondary/50 ${!isCurrentMonth ? "opacity-40" : ""}`}
                           onClick={() => { setCurrentDate(day); setViewMode("day"); }}
                         >
                           <span className={`text-xs font-medium inline-flex items-center justify-center w-6 h-6 rounded-full ${isToday ? "bg-primary text-primary-foreground" : "text-foreground"}`}>
@@ -195,13 +250,7 @@ export default function Dashboard() {
                           </span>
                           <div className="mt-1 space-y-0.5">
                             {dayApts.slice(0, 3).map((apt) => (
-                              <div
-                                key={apt.id}
-                                onClick={(e) => { e.stopPropagation(); openAppointment(apt); }}
-                                className="text-[10px] leading-tight bg-primary/15 text-primary rounded px-1 py-0.5 truncate cursor-pointer hover:bg-primary/25 transition-colors"
-                              >
-                                {apt.hora} {apt.nome_cliente}
-                              </div>
+                              <EventChip key={apt.id} apt={apt} compact />
                             ))}
                             {dayApts.length > 3 && (
                               <div className="text-[10px] text-muted-foreground pl-1">+{dayApts.length - 3} mais</div>
@@ -223,7 +272,7 @@ export default function Dashboard() {
                       return (
                         <div
                           key={i}
-                          className="text-center py-2 border-r border-border last:border-r-0 cursor-pointer hover:bg-secondary/50"
+                          className="text-center py-2 border-r border-border last:border-r-0 cursor-pointer hover:bg-secondary/50 transition-colors"
                           onClick={() => { setCurrentDate(day); setViewMode("day"); }}
                         >
                           <div className="text-[10px] text-muted-foreground uppercase">{dayNames[i]}</div>
@@ -235,72 +284,98 @@ export default function Dashboard() {
                     })}
                   </div>
                   <ScrollArea className="h-[600px]">
-                    {HOURS.map((hour) => (
-                      <div key={hour} className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-border">
-                        <div className="text-[10px] text-muted-foreground text-right pr-2 py-3 border-r border-border">
-                          {String(hour).padStart(2, "0")}:00
-                        </div>
-                        {weekDays.map((day, di) => {
-                          const dateStr = format(day, "yyyy-MM-dd");
-                          const hourApts = getAppointmentsForDateAndHour(dateStr, hour);
-                          return (
-                            <div key={di} className="border-r border-border last:border-r-0 min-h-[48px] p-0.5">
-                              {hourApts.map((apt) => (
+                    <div className="grid grid-cols-[60px_repeat(7,1fr)]">
+                      <div>
+                        {HOURS.map((hour) => (
+                          <div key={hour} className="h-[96px] text-[10px] text-muted-foreground text-right pr-2 pt-1 border-r border-border border-b">
+                            {String(hour).padStart(2, "0")}:00
+                          </div>
+                        ))}
+                      </div>
+                      {weekDays.map((day, di) => {
+                        const dateStr = format(day, "yyyy-MM-dd");
+                        const dayApts = getAppointmentsForDate(dateStr);
+                        return (
+                          <div key={di} className="relative border-r border-border last:border-r-0">
+                            {HOURS.map((hour) => (
+                              <div key={hour} className="h-[96px] border-b border-border">
+                                <div className="h-[48px] border-b border-border/30" />
+                              </div>
+                            ))}
+                            {dayApts.map((apt) => {
+                              const top = getSlotOffset(apt.hora, 0);
+                              return (
                                 <div
                                   key={apt.id}
-                                  onClick={() => openAppointment(apt)}
-                                  className="text-[10px] leading-tight bg-primary/15 text-primary rounded px-1 py-1 mb-0.5 cursor-pointer hover:bg-primary/25 transition-colors"
+                                  className="absolute left-0.5 right-0.5 z-10"
+                                  style={{ top: `${top}px`, height: `${SLOT_HEIGHT}px` }}
                                 >
-                                  <div className="font-medium truncate">{apt.nome_cliente}</div>
-                                  <div className="truncate opacity-75">{apt.servico}</div>
+                                  <EventChip apt={apt} />
                                 </div>
-                              ))}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ))}
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </ScrollArea>
                 </div>
               )}
 
               {viewMode === "day" && (
                 <ScrollArea className="h-[600px]">
-                  {HOURS.map((hour) => {
-                    const dateStr = format(currentDate, "yyyy-MM-dd");
-                    const hourApts = getAppointmentsForDateAndHour(dateStr, hour);
-                    return (
-                      <div key={hour} className="flex border-b border-border">
-                        <div className="w-16 shrink-0 text-xs text-muted-foreground text-right pr-3 py-4 border-r border-border">
-                          {String(hour).padStart(2, "0")}:00
-                        </div>
-                        <div className="flex-1 min-h-[56px] p-1 space-y-1">
-                          {hourApts.map((apt) => (
+                  <div className="relative">
+                    <div className="grid grid-cols-[60px_1fr]">
+                      <div>
+                        {HOURS.map((hour) => (
+                          <div key={hour} className="h-[96px] text-xs text-muted-foreground text-right pr-3 pt-1 border-r border-border border-b">
+                            {String(hour).padStart(2, "0")}:00
+                          </div>
+                        ))}
+                      </div>
+                      <div className="relative">
+                        {HOURS.map((hour) => (
+                          <div key={hour} className="h-[96px] border-b border-border">
+                            <div className="h-[48px] border-b border-border/30" />
+                          </div>
+                        ))}
+                        {getAppointmentsForDate(format(currentDate, "yyyy-MM-dd")).map((apt) => {
+                          const top = getSlotOffset(apt.hora, 0);
+                          const endTime = getEndTime(apt.hora);
+                          return (
                             <div
                               key={apt.id}
-                              onClick={() => openAppointment(apt)}
-                              className="flex items-center gap-3 bg-primary/10 border border-primary/20 rounded-lg px-3 py-2 cursor-pointer hover:bg-primary/20 transition-colors"
+                              className="absolute left-1 right-4 z-10"
+                              style={{ top: `${top}px`, height: `${SLOT_HEIGHT}px` }}
                             >
-                              <div className="flex-1 min-w-0">
-                                <div className="text-sm font-medium text-foreground truncate">{apt.nome_cliente}</div>
-                                <div className="text-xs text-muted-foreground truncate">{apt.servico}</div>
-                              </div>
-                              <div className="text-right shrink-0">
-                                <div className="text-xs font-medium text-primary">{apt.hora}</div>
-                                <div className="text-[10px] text-muted-foreground">{apt.telefone}</div>
+                              <div
+                                onClick={() => openAppointment(apt)}
+                                className="h-full bg-primary/10 border-l-[3px] border-l-primary rounded-md px-3 py-1.5 cursor-pointer
+                                  shadow-sm hover:shadow-md hover:bg-primary/20 hover:scale-[1.01]
+                                  transition-all duration-200 ease-out flex items-center gap-3"
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-[10px] font-semibold text-primary">{apt.hora} - {endTime}</div>
+                                  <div className="text-sm font-medium text-foreground truncate">{apt.nome_cliente}</div>
+                                  <div className="text-xs text-muted-foreground truncate">{apt.servico}</div>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <div className="text-[10px] text-muted-foreground">{apt.telefone}</div>
+                                </div>
                               </div>
                             </div>
-                          ))}
-                        </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
+                    </div>
+                  </div>
                 </ScrollArea>
               )}
             </CardContent>
           </Card>
         </div>
 
+        {/* Sidebar */}
         <div className="w-full lg:w-80 shrink-0 space-y-4">
           <Card>
             <CardHeader className="pb-3">
@@ -316,7 +391,7 @@ export default function Dashboard() {
               {recentScheduled.map((apt) => (
                 <div
                   key={apt.id}
-                  className="flex items-start gap-3 p-2.5 rounded-lg bg-secondary/50 cursor-pointer hover:bg-secondary transition-colors"
+                  className="flex items-start gap-3 p-2.5 rounded-lg bg-secondary/50 cursor-pointer hover:bg-secondary hover:shadow-sm transition-all duration-200"
                   onClick={() => openAppointment(apt)}
                 >
                   <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
@@ -347,7 +422,7 @@ export default function Dashboard() {
                 <p className="text-xs text-muted-foreground">Nenhum cancelamento recente.</p>
               )}
               {recentCancelled.map((apt) => (
-                <div key={apt.id} className="flex items-start gap-3 p-2.5 rounded-lg bg-destructive/5">
+                <div key={apt.id} className="flex items-start gap-3 p-2.5 rounded-lg bg-destructive/5 hover:bg-destructive/10 transition-all duration-200">
                   <div className="w-8 h-8 rounded-full bg-destructive/15 flex items-center justify-center shrink-0">
                     <User className="h-3.5 w-3.5 text-destructive" />
                   </div>
@@ -366,6 +441,7 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Appointment Details Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -399,7 +475,7 @@ export default function Dashboard() {
                   <CalendarIcon className="h-4 w-4 text-muted-foreground" />
                   <div>
                     <div className="text-xs text-muted-foreground">Data e Hora</div>
-                    <div className="text-sm font-medium">{selectedAppointment.data} às {selectedAppointment.hora}</div>
+                    <div className="text-sm font-medium">{selectedAppointment.data} às {selectedAppointment.hora} - {getEndTime(selectedAppointment.hora)}</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -414,10 +490,17 @@ export default function Dashboard() {
               </div>
               {selectedAppointment.status === "confirmado" && (
                 <DialogFooter className="flex gap-2 sm:gap-2">
-                  <Button variant="destructive" className="flex-1" onClick={() => updateStatus(selectedAppointment.id, "cancelado")}>
+                  <Button
+                    variant="destructive"
+                    className="flex-1 hover:scale-[1.02] transition-transform"
+                    onClick={() => setConfirmAction({ type: "cancelado", id: selectedAppointment.id })}
+                  >
                     <X className="h-4 w-4 mr-1" /> Cancelar
                   </Button>
-                  <Button className="flex-1" onClick={() => updateStatus(selectedAppointment.id, "finalizado")}>
+                  <Button
+                    className="flex-1 hover:scale-[1.02] transition-transform"
+                    onClick={() => setConfirmAction({ type: "finalizado", id: selectedAppointment.id })}
+                  >
                     <CheckCircle2 className="h-4 w-4 mr-1" /> Concluir
                   </Button>
                 </DialogFooter>
@@ -426,6 +509,28 @@ export default function Dashboard() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation Alert */}
+      <AlertDialog open={!!confirmAction} onOpenChange={(open) => { if (!open) setConfirmAction(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmAction?.type === "cancelado" ? "Cancelar agendamento?" : "Concluir agendamento?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmAction?.type === "cancelado"
+                ? "Tem certeza que deseja cancelar este agendamento? Esta ação não pode ser desfeita."
+                : "Tem certeza que deseja marcar este agendamento como concluído?"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmAction}>
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
