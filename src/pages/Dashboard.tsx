@@ -205,6 +205,54 @@ export default function Dashboard() {
     }
   };
 
+  const handleDrop = async (targetDate: string, targetHora: string) => {
+    setDragOver(null);
+    if (!draggingApt || isRescheduling) return;
+    const horaFormatted = targetHora.length === 5 ? `${targetHora}:00` : targetHora;
+    // Skip if same slot
+    if (draggingApt.data === targetDate && draggingApt.hora === horaFormatted) {
+      setDraggingApt(null);
+      return;
+    }
+    // Check if occupied
+    const occupied = appointments.some(a => a.data === targetDate && a.hora === horaFormatted && a.id !== draggingApt.id);
+    if (occupied) {
+      toast({ title: "Horário já ocupado", variant: "destructive" });
+      setDraggingApt(null);
+      return;
+    }
+    setIsRescheduling(true);
+    try {
+      const { error } = await supabase.from("agendamentos").update({ data: targetDate, hora: horaFormatted }).eq("id", draggingApt.id);
+      if (error) throw error;
+      // Call webhook
+      try {
+        await fetch("https://n8n.automatizai.site/webhook/appagendamentos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            agendamento_id: draggingApt.id,
+            telefone: draggingApt.telefone,
+            nome_cliente: draggingApt.nome_cliente,
+            servico: draggingApt.servico,
+            data: targetDate,
+            hora: horaFormatted,
+          }),
+        });
+      } catch {
+        toast({ title: "Erro ao atualizar evento no calendário", variant: "destructive" });
+      }
+      fetchAppointments();
+      fetchRecent();
+      toast({ title: "Agendamento atualizado" });
+    } catch (err: any) {
+      toast({ title: "Erro ao reagendar", description: err?.message, variant: "destructive" });
+    } finally {
+      setDraggingApt(null);
+      setIsRescheduling(false);
+    }
+  };
+
   const navigate = (dir: number) => {
     if (viewMode === "month") setCurrentDate(dir > 0 ? addMonths(currentDate, 1) : subMonths(currentDate, 1));
     else if (viewMode === "week") setCurrentDate(dir > 0 ? addDays(currentDate, 7) : subDays(currentDate, 7));
