@@ -6,22 +6,22 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChevronLeft, ChevronRight, Phone, Clock, User, Scissors, Calendar as CalendarIcon, X, CheckCircle2 } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, startOfWeek, endOfWeek, isSameMonth, isSameDay, addDays, subDays } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, startOfWeek, endOfWeek, isSameMonth, isSameDay, addDays, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface Appointment {
   id: string;
-  client_name: string;
-  phone: string;
-  service: string;
-  date: string;
-  time: string;
+  nome_cliente: string;
+  telefone: string;
+  servico: string;
+  data: string;
+  hora: string;
   status: string;
 }
 
 type ViewMode = "month" | "week" | "day";
 
-const HOURS = Array.from({ length: 13 }, (_, i) => i + 8); // 08:00 to 20:00
+const HOURS = Array.from({ length: 13 }, (_, i) => i + 8);
 
 export default function Dashboard() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -36,7 +36,7 @@ export default function Dashboard() {
     const { data } = await supabase
       .from("agendamentos")
       .select("*")
-      .eq("status", "scheduled");
+      .eq("status", "confirmado");
     if (data) setAppointments(data);
   };
 
@@ -44,18 +44,18 @@ export default function Dashboard() {
     const { data: scheduled } = await supabase
       .from("agendamentos")
       .select("*")
-      .eq("status", "scheduled")
-      .order("date", { ascending: false })
-      .order("time", { ascending: false })
+      .eq("status", "confirmado")
+      .order("data", { ascending: false })
+      .order("hora", { ascending: false })
       .limit(5);
     if (scheduled) setRecentScheduled(scheduled);
 
     const { data: cancelled } = await supabase
       .from("agendamentos")
       .select("*")
-      .eq("status", "cancelled")
-      .order("date", { ascending: false })
-      .order("time", { ascending: false })
+      .eq("status", "cancelado")
+      .order("data", { ascending: false })
+      .order("hora", { ascending: false })
       .limit(5);
     if (cancelled) setRecentCancelled(cancelled);
   };
@@ -97,10 +97,10 @@ export default function Dashboard() {
   const goToday = () => setCurrentDate(new Date());
 
   const getAppointmentsForDate = (date: string) =>
-    appointments.filter((a) => a.date === date);
+    appointments.filter((a) => a.data === date);
 
   const getAppointmentsForDateAndHour = (date: string, hour: number) =>
-    appointments.filter((a) => a.date === date && parseInt(a.time.split(":")[0]) === hour);
+    appointments.filter((a) => a.data === date && parseInt(a.hora.split(":")[0]) === hour);
 
   const headerLabel = useMemo(() => {
     if (viewMode === "month") return format(currentDate, "MMMM yyyy", { locale: ptBR });
@@ -112,7 +112,6 @@ export default function Dashboard() {
     return format(currentDate, "EEEE, d 'de' MMMM yyyy", { locale: ptBR });
   }, [currentDate, viewMode]);
 
-  // Month view days
   const monthDays = useMemo(() => {
     const ms = startOfMonth(currentDate);
     const me = endOfMonth(currentDate);
@@ -121,7 +120,6 @@ export default function Dashboard() {
     return eachDayOfInterval({ start: ws, end: we });
   }, [currentDate]);
 
-  // Week view days
   const weekDays = useMemo(() => {
     const ws = startOfWeek(currentDate, { weekStartsOn: 1 });
     return Array.from({ length: 7 }, (_, i) => addDays(ws, i));
@@ -131,7 +129,6 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border px-6 py-4">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between">
           <div>
@@ -145,9 +142,7 @@ export default function Dashboard() {
       </header>
 
       <div className="max-w-[1600px] mx-auto p-6 flex gap-6 flex-col lg:flex-row">
-        {/* Calendar */}
         <div className="flex-1 min-w-0">
-          {/* Calendar toolbar */}
           <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
             <div className="flex items-center gap-2">
               <Button variant="outline" size="icon" onClick={() => navigate(-1)} className="h-9 w-9">
@@ -176,14 +171,11 @@ export default function Dashboard() {
 
           <Card className="overflow-hidden">
             <CardContent className="p-0">
-              {/* MONTH VIEW */}
               {viewMode === "month" && (
                 <div>
                   <div className="grid grid-cols-7 border-b border-border">
                     {dayNames.map((d) => (
-                      <div key={d} className="text-center text-xs font-medium text-muted-foreground py-3 border-r border-border last:border-r-0">
-                        {d}
-                      </div>
+                      <div key={d} className="text-center text-xs font-medium text-muted-foreground py-3 border-r border-border last:border-r-0">{d}</div>
                     ))}
                   </div>
                   <div className="grid grid-cols-7">
@@ -208,7 +200,7 @@ export default function Dashboard() {
                                 onClick={(e) => { e.stopPropagation(); openAppointment(apt); }}
                                 className="text-[10px] leading-tight bg-primary/15 text-primary rounded px-1 py-0.5 truncate cursor-pointer hover:bg-primary/25 transition-colors"
                               >
-                                {apt.time} {apt.client_name}
+                                {apt.hora} {apt.nome_cliente}
                               </div>
                             ))}
                             {dayApts.length > 3 && (
@@ -222,7 +214,6 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* WEEK VIEW */}
               {viewMode === "week" && (
                 <div>
                   <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-border">
@@ -260,8 +251,8 @@ export default function Dashboard() {
                                   onClick={() => openAppointment(apt)}
                                   className="text-[10px] leading-tight bg-primary/15 text-primary rounded px-1 py-1 mb-0.5 cursor-pointer hover:bg-primary/25 transition-colors"
                                 >
-                                  <div className="font-medium truncate">{apt.client_name}</div>
-                                  <div className="truncate opacity-75">{apt.service}</div>
+                                  <div className="font-medium truncate">{apt.nome_cliente}</div>
+                                  <div className="truncate opacity-75">{apt.servico}</div>
                                 </div>
                               ))}
                             </div>
@@ -273,7 +264,6 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* DAY VIEW */}
               {viewMode === "day" && (
                 <ScrollArea className="h-[600px]">
                   {HOURS.map((hour) => {
@@ -292,12 +282,12 @@ export default function Dashboard() {
                               className="flex items-center gap-3 bg-primary/10 border border-primary/20 rounded-lg px-3 py-2 cursor-pointer hover:bg-primary/20 transition-colors"
                             >
                               <div className="flex-1 min-w-0">
-                                <div className="text-sm font-medium text-foreground truncate">{apt.client_name}</div>
-                                <div className="text-xs text-muted-foreground truncate">{apt.service}</div>
+                                <div className="text-sm font-medium text-foreground truncate">{apt.nome_cliente}</div>
+                                <div className="text-xs text-muted-foreground truncate">{apt.servico}</div>
                               </div>
                               <div className="text-right shrink-0">
-                                <div className="text-xs font-medium text-primary">{apt.time}</div>
-                                <div className="text-[10px] text-muted-foreground">{apt.phone}</div>
+                                <div className="text-xs font-medium text-primary">{apt.hora}</div>
+                                <div className="text-[10px] text-muted-foreground">{apt.telefone}</div>
                               </div>
                             </div>
                           ))}
@@ -311,9 +301,7 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* Right sidebar */}
         <div className="w-full lg:w-80 shrink-0 space-y-4">
-          {/* Recent Appointments */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -335,11 +323,11 @@ export default function Dashboard() {
                     <User className="h-3.5 w-3.5 text-primary" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium text-foreground truncate">{apt.client_name}</div>
-                    <div className="text-xs text-muted-foreground">{apt.service}</div>
+                    <div className="text-sm font-medium text-foreground truncate">{apt.nome_cliente}</div>
+                    <div className="text-xs text-muted-foreground">{apt.servico}</div>
                     <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-2">
-                      <span>{apt.date}</span>
-                      <span>{apt.time}</span>
+                      <span>{apt.data}</span>
+                      <span>{apt.hora}</span>
                     </div>
                   </div>
                 </div>
@@ -347,7 +335,6 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Recent Cancellations */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -365,11 +352,11 @@ export default function Dashboard() {
                     <User className="h-3.5 w-3.5 text-destructive" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium text-foreground truncate">{apt.client_name}</div>
-                    <div className="text-xs text-muted-foreground">{apt.service}</div>
+                    <div className="text-sm font-medium text-foreground truncate">{apt.nome_cliente}</div>
+                    <div className="text-xs text-muted-foreground">{apt.servico}</div>
                     <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-2">
-                      <span>{apt.date}</span>
-                      <span>{apt.time}</span>
+                      <span>{apt.data}</span>
+                      <span>{apt.hora}</span>
                     </div>
                   </div>
                 </div>
@@ -379,7 +366,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Appointment Detail Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -392,46 +378,46 @@ export default function Dashboard() {
                   <User className="h-4 w-4 text-muted-foreground" />
                   <div>
                     <div className="text-xs text-muted-foreground">Cliente</div>
-                    <div className="text-sm font-medium">{selectedAppointment.client_name}</div>
+                    <div className="text-sm font-medium">{selectedAppointment.nome_cliente}</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <Phone className="h-4 w-4 text-muted-foreground" />
                   <div>
                     <div className="text-xs text-muted-foreground">Telefone</div>
-                    <div className="text-sm font-medium">{selectedAppointment.phone}</div>
+                    <div className="text-sm font-medium">{selectedAppointment.telefone}</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <Scissors className="h-4 w-4 text-muted-foreground" />
                   <div>
                     <div className="text-xs text-muted-foreground">Serviço</div>
-                    <div className="text-sm font-medium">{selectedAppointment.service}</div>
+                    <div className="text-sm font-medium">{selectedAppointment.servico}</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <CalendarIcon className="h-4 w-4 text-muted-foreground" />
                   <div>
                     <div className="text-xs text-muted-foreground">Data e Hora</div>
-                    <div className="text-sm font-medium">{selectedAppointment.date} às {selectedAppointment.time}</div>
+                    <div className="text-sm font-medium">{selectedAppointment.data} às {selectedAppointment.hora}</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <Clock className="h-4 w-4 text-muted-foreground" />
                   <div>
                     <div className="text-xs text-muted-foreground">Status</div>
-                    <Badge variant={selectedAppointment.status === "scheduled" ? "default" : selectedAppointment.status === "cancelled" ? "destructive" : "secondary"}>
-                      {selectedAppointment.status === "scheduled" ? "Agendado" : selectedAppointment.status === "cancelled" ? "Cancelado" : "Concluído"}
+                    <Badge variant={selectedAppointment.status === "confirmado" ? "default" : selectedAppointment.status === "cancelado" ? "destructive" : "secondary"}>
+                      {selectedAppointment.status === "confirmado" ? "Confirmado" : selectedAppointment.status === "cancelado" ? "Cancelado" : "Finalizado"}
                     </Badge>
                   </div>
                 </div>
               </div>
-              {selectedAppointment.status === "scheduled" && (
+              {selectedAppointment.status === "confirmado" && (
                 <DialogFooter className="flex gap-2 sm:gap-2">
-                  <Button variant="destructive" className="flex-1" onClick={() => updateStatus(selectedAppointment.id, "cancelled")}>
+                  <Button variant="destructive" className="flex-1" onClick={() => updateStatus(selectedAppointment.id, "cancelado")}>
                     <X className="h-4 w-4 mr-1" /> Cancelar
                   </Button>
-                  <Button className="flex-1" onClick={() => updateStatus(selectedAppointment.id, "completed")}>
+                  <Button className="flex-1" onClick={() => updateStatus(selectedAppointment.id, "finalizado")}>
                     <CheckCircle2 className="h-4 w-4 mr-1" /> Concluir
                   </Button>
                 </DialogFooter>
