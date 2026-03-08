@@ -1048,7 +1048,7 @@ export default function Dashboard() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="calendario">
+          <TabsContent value="agenda">
       <div className="flex gap-6 flex-col lg:flex-row">
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
