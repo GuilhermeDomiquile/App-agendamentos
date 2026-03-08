@@ -298,7 +298,7 @@ export default function DashboardServicos() {
     <Card>
       <CardContent className="p-0">
         <DndContext
-          sensors={useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))}
+          sensors={desktopSensors}
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
         >
