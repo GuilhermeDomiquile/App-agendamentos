@@ -345,7 +345,7 @@ export default function Dashboard() {
     );
   };
 
-  // Mobile single-day vertical list
+  // Mobile single-day vertical list — compact slots
   const renderMobileDayView = () => {
     const dateStr = format(currentDate, "yyyy-MM-dd");
     const bookedSlots = getBookedSlotsForDate(dateStr);
@@ -354,39 +354,44 @@ export default function Dashboard() {
     dayApts.forEach(a => aptMap.set(a.hora, a));
 
     return (
-      <div className="divide-y divide-border">
+      <div className="divide-y divide-border/50">
         {MOBILE_SLOTS.map((slot) => {
           const apt = aptMap.get(slot) || aptMap.get(`${slot}:00`);
           const isBooked = bookedSlots.has(slot) || bookedSlots.has(`${slot}:00`);
 
+          if (apt) {
+            return (
+              <div
+                key={slot}
+                className="flex items-center h-11 bg-primary/5 active:bg-primary/10 transition-colors"
+                onClick={() => openAppointment(apt)}
+              >
+                <div className="w-12 shrink-0 text-center">
+                  <span className="text-[11px] font-medium text-muted-foreground">{slot}</span>
+                </div>
+                <div className="flex-1 flex items-center min-w-0 pr-2">
+                  <div className="flex-1 bg-primary/10 border-l-2 border-l-primary rounded px-2 py-1 min-w-0 active:scale-[0.97] transition-transform">
+                    <div className="text-[12px] font-medium text-foreground truncate leading-tight">
+                      {apt.nome_cliente}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground truncate leading-tight">{apt.servico}</div>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
           return (
             <div
               key={slot}
-              className={`flex items-stretch min-h-[56px] transition-colors ${
-                isBooked ? "bg-primary/5" : "hover:bg-secondary/50 active:bg-secondary"
-              }`}
-              onClick={() => !isBooked && openBookingModal(dateStr, slot)}
+              className="flex items-center h-9 active:bg-secondary/80 transition-colors"
+              onClick={() => openBookingModal(dateStr, slot)}
             >
-              <div className="w-16 shrink-0 flex items-center justify-center border-r border-border">
-                <span className="text-xs font-medium text-muted-foreground">{slot}</span>
+              <div className="w-12 shrink-0 text-center">
+                <span className="text-[11px] text-muted-foreground/60">{slot}</span>
               </div>
-              <div className="flex-1 px-3 py-2 flex items-center min-w-0">
-                {apt ? (
-                  <div
-                    className="flex-1 bg-primary/10 border-l-[3px] border-l-primary rounded-lg px-3 py-2 min-w-0 active:scale-[0.98] transition-transform"
-                    onClick={(e) => { e.stopPropagation(); openAppointment(apt); }}
-                  >
-                    <div className="text-sm font-medium text-foreground truncate">
-                      {apt.nome_cliente}
-                    </div>
-                    <div className="text-xs text-muted-foreground truncate">{apt.servico}</div>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 text-muted-foreground/50">
-                    <Plus className="h-4 w-4" />
-                    <span className="text-xs">Disponível</span>
-                  </div>
-                )}
+              <div className="flex-1 flex items-center min-w-0 pr-2">
+                <Plus className="h-3 w-3 text-muted-foreground/30 mr-1" />
               </div>
             </div>
           );
@@ -401,59 +406,59 @@ export default function Dashboard() {
       <TooltipProvider>
         <div className="min-h-screen bg-background">
           {/* Mobile Header */}
-          <header className="border-b border-border px-4 py-3">
+          <header className="border-b border-border px-3 py-2.5">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-lg font-bold text-foreground">Dashboard</h1>
-                <p className="text-xs text-muted-foreground">
+                <h1 className="text-base font-bold text-foreground">Dashboard</h1>
+                <p className="text-[11px] text-muted-foreground">
                   {appointments.length} agendamento{appointments.length !== 1 ? "s" : ""}
                 </p>
               </div>
             </div>
           </header>
 
-          <div className="px-4 pt-3 pb-4">
+          <div className="px-3 pt-2 pb-4">
             <Tabs defaultValue="calendario" className="w-full">
-              <TabsList className="mb-3 w-full">
-                <TabsTrigger value="calendario" className="gap-1.5 flex-1 text-xs">
-                  <CalendarIcon className="h-3.5 w-3.5" />
+              <TabsList className="mb-2 w-full h-9">
+                <TabsTrigger value="calendario" className="gap-1 flex-1 text-[12px] h-7">
+                  <CalendarIcon className="h-3 w-3" />
                   Calendário
                 </TabsTrigger>
-                <TabsTrigger value="servicos" className="gap-1.5 flex-1 text-xs">
-                  <Settings className="h-3.5 w-3.5" />
+                <TabsTrigger value="servicos" className="gap-1 flex-1 text-[12px] h-7">
+                  <Settings className="h-3 w-3" />
                   Serviços
                 </TabsTrigger>
               </TabsList>
 
               <TabsContent value="calendario">
                 {/* Mobile Day Navigation */}
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-2">
                   <Button
                     variant="outline"
                     size="icon"
                     onClick={() => navigate(-1)}
-                    className="h-10 w-10 active:scale-95 transition-transform"
+                    className="h-8 w-8 active:scale-90 transition-transform"
                   >
-                    <ChevronLeft className="h-5 w-5" />
+                    <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <div className="text-center flex-1 mx-2">
-                    <h2 className="text-base font-semibold text-foreground capitalize">{headerLabel}</h2>
-                    <p className="text-xs text-muted-foreground">{format(currentDate, "MMMM yyyy", { locale: ptBR })}</p>
+                  <div className="text-center flex-1 mx-2" onClick={goToday}>
+                    <h2 className="text-[13px] font-semibold text-foreground capitalize">{headerLabel}</h2>
+                    <p className="text-[10px] text-muted-foreground">{format(currentDate, "MMMM yyyy", { locale: ptBR })}</p>
                   </div>
                   <Button
                     variant="outline"
                     size="icon"
                     onClick={() => navigate(1)}
-                    className="h-10 w-10 active:scale-95 transition-transform"
+                    className="h-8 w-8 active:scale-90 transition-transform"
                   >
-                    <ChevronRight className="h-5 w-5" />
+                    <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
 
                 {/* Today button */}
                 {!isSameDay(currentDate, new Date()) && (
-                  <div className="flex justify-center mb-3">
-                    <Button variant="ghost" size="sm" onClick={goToday} className="text-xs h-8">
+                  <div className="flex justify-center mb-2">
+                    <Button variant="ghost" size="sm" onClick={goToday} className="text-[11px] h-7 px-3">
                       Ir para hoje
                     </Button>
                   </div>
@@ -462,37 +467,37 @@ export default function Dashboard() {
                 {/* Mobile Day Schedule */}
                 <Card className="overflow-hidden">
                   <CardContent className="p-0">
-                    <ScrollArea className="h-[calc(100vh-280px)]">
+                    <ScrollArea className="h-[calc(100vh-240px)]">
                       {renderMobileDayView()}
                     </ScrollArea>
                   </CardContent>
                 </Card>
 
                 {/* Mobile Recent Appointments */}
-                <div className="mt-4 space-y-3">
+                <div className="mt-3 space-y-2">
                   <Card>
-                    <CardHeader className="pb-2 px-4 pt-4">
-                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                        <CalendarIcon className="h-4 w-4 text-primary" />
+                    <CardHeader className="pb-1.5 px-3 pt-3">
+                      <CardTitle className="text-[12px] font-semibold flex items-center gap-1.5">
+                        <CalendarIcon className="h-3.5 w-3.5 text-primary" />
                         Recentes
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="px-4 pb-4 space-y-2">
+                    <CardContent className="px-3 pb-3 space-y-1.5">
                       {recentScheduled.length === 0 && (
-                        <p className="text-xs text-muted-foreground">Nenhum agendamento recente.</p>
+                        <p className="text-[11px] text-muted-foreground">Nenhum agendamento recente.</p>
                       )}
                       {recentScheduled.slice(0, 3).map((apt) => (
                         <div
                           key={apt.id}
-                          className="flex items-center gap-3 p-2.5 rounded-lg bg-secondary/50 active:bg-secondary transition-colors"
+                          className="flex items-center gap-2 p-2 rounded-md bg-secondary/50 active:bg-secondary active:scale-[0.98] transition-all"
                           onClick={() => openAppointment(apt)}
                         >
-                          <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-                            <User className="h-3.5 w-3.5 text-primary" />
+                          <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                            <User className="h-3 w-3 text-primary" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="text-sm font-medium text-foreground truncate">{apt.nome_cliente}</div>
-                            <div className="text-xs text-muted-foreground">{apt.servico} · {apt.data} {formatStartTime(apt.hora)}</div>
+                            <div className="text-[12px] font-medium text-foreground truncate">{apt.nome_cliente}</div>
+                            <div className="text-[10px] text-muted-foreground truncate">{apt.servico} · {apt.data} {formatStartTime(apt.hora)}</div>
                           </div>
                         </div>
                       ))}
