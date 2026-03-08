@@ -278,7 +278,7 @@ export default function Dashboard() {
 
   const headerLabel = useMemo(() => {
     if (isMobile) {
-      if (mobileView === "mes") return format(currentDate, "MMMM yyyy", { locale: ptBR });
+      if (agendaSubView === "mes") return format(currentDate, "MMMM yyyy", { locale: ptBR });
       return format(currentDate, "EEEE, d", { locale: ptBR });
     }
     if (viewMode === "month") return format(currentDate, "MMMM yyyy", { locale: ptBR });
