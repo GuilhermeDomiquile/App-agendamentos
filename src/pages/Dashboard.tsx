@@ -1032,15 +1032,15 @@ export default function Dashboard() {
       </header>
 
       <div className="max-w-[1600px] mx-auto px-6 pt-4">
-        <Tabs defaultValue="calendario" className="w-full">
+        <Tabs defaultValue="agenda" className="w-full">
           <TabsList className="mb-4">
-            <TabsTrigger value="calendario" className="gap-2">
-              <CalendarIcon className="h-4 w-4" />
-              Calendário
-            </TabsTrigger>
             <TabsTrigger value="fila" className="gap-2">
               <ListOrdered className="h-4 w-4" />
               Fila
+            </TabsTrigger>
+            <TabsTrigger value="agenda" className="gap-2">
+              <CalendarIcon className="h-4 w-4" />
+              Agenda
             </TabsTrigger>
             <TabsTrigger value="servicos" className="gap-2">
               <Settings className="h-4 w-4" />
