@@ -39,8 +39,10 @@ export default function DashboardServicos() {
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStartY = useRef<number>(0);
+  const touchStartX = useRef<number>(0);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const fetchServicos = async () => {
@@ -145,19 +147,21 @@ export default function DashboardServicos() {
   // Touch drag handlers (mobile)
   const handleTouchStart = useCallback((index: number, e: React.TouchEvent) => {
     touchStartY.current = e.touches[0].clientY;
+    touchStartX.current = e.touches[0].clientX;
     longPressTimer.current = setTimeout(() => {
       setDraggingIndex(index);
+      setDragOverIndex(index);
       dragItem.current = index;
-      // Haptic feedback if available
+      dragOverItem.current = index;
       if (navigator.vibrate) navigator.vibrate(30);
     }, 300);
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (draggingIndex === null) {
-      // Cancel long press if moved too much
       const dy = Math.abs(e.touches[0].clientY - touchStartY.current);
-      if (dy > 10 && longPressTimer.current) {
+      const dx = Math.abs(e.touches[0].clientX - touchStartX.current);
+      if ((dy > 8 || dx > 8) && longPressTimer.current) {
         clearTimeout(longPressTimer.current);
         longPressTimer.current = null;
       }
@@ -165,13 +169,16 @@ export default function DashboardServicos() {
     }
     e.preventDefault();
     const touch = e.touches[0];
-    // Find which card we're over
     for (let i = 0; i < cardRefs.current.length; i++) {
       const ref = cardRefs.current[i];
       if (ref) {
         const rect = ref.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
         if (touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
-          dragOverItem.current = i;
+          if (i !== dragOverItem.current) {
+            dragOverItem.current = i;
+            setDragOverIndex(i);
+          }
           break;
         }
       }
@@ -187,6 +194,7 @@ export default function DashboardServicos() {
       await reorderItems(draggingIndex, dragOverItem.current);
     }
     setDraggingIndex(null);
+    setDragOverIndex(null);
     dragItem.current = null;
     dragOverItem.current = null;
   }, [draggingIndex]);
@@ -213,19 +221,27 @@ export default function DashboardServicos() {
     }
     return (
       <div className="space-y-1.5">
-        {servicos.map((s, index) => (
-          <div
-            key={s.id}
-            ref={(el) => { cardRefs.current[index] = el; }}
-            className={`rounded-lg border bg-card shadow-sm overflow-hidden transition-all duration-200 ${
-              draggingIndex === index
-                ? "scale-[1.03] shadow-lg ring-1 ring-primary/30 z-20 relative"
-                : "active:scale-[0.99]"
-            }`}
-            onTouchStart={(e) => handleTouchStart(index, e)}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-          >
+        {servicos.map((s, index) => {
+          const isDragging = draggingIndex === index;
+          const isOver = dragOverIndex === index && draggingIndex !== null && draggingIndex !== index;
+          return (
+            <div key={s.id}>
+              {isOver && draggingIndex !== null && draggingIndex > index && (
+                <div className="h-1 bg-primary/40 rounded-full mx-4 mb-1 animate-fade-in" />
+              )}
+              <div
+                ref={(el) => { cardRefs.current[index] = el; }}
+                style={{ userSelect: "none", WebkitUserSelect: "none" }}
+                className={`rounded-lg border bg-card shadow-sm overflow-hidden transition-all duration-200 ${
+                  isDragging
+                    ? "scale-[1.04] shadow-xl ring-2 ring-primary/40 z-20 relative opacity-90"
+                    : ""
+                }`}
+                onTouchStart={(e) => handleTouchStart(index, e)}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onContextMenu={(e) => e.preventDefault()}
+              >
             <div className="flex items-center gap-2 px-2.5 py-2">
               <div className="shrink-0 touch-none">
                 <GripVertical className="h-4 w-4 text-muted-foreground/50" />
