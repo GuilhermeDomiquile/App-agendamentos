@@ -864,27 +864,15 @@ export default function Dashboard() {
                   <ListOrdered className="h-3 w-3" />
                   Fila
                 </TabsTrigger>
-                <TabsTrigger value="dia" className="gap-1 flex-1 text-[12px] h-7">
+                <TabsTrigger value="agenda" className="gap-1 flex-1 text-[12px] h-7">
                   <CalendarIcon className="h-3 w-3" />
-                  Dia
+                  Agenda
                 </TabsTrigger>
-                <TabsTrigger value="mes" className="gap-1 flex-1 text-[12px] h-7">
-                  <CalendarIcon className="h-3 w-3" />
-                  Mês
+                <TabsTrigger value="servicos" className="gap-1 flex-1 text-[12px] h-7">
+                  <Settings className="h-3 w-3" />
+                  Serviços
                 </TabsTrigger>
               </TabsList>
-
-              {/* Additional tabs for Serviços on mobile */}
-              <div className="flex justify-end mb-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-[11px] h-7 gap-1"
-                  onClick={() => setMobileView("fila" as any)}
-                >
-                  {/* Hidden: handled by separate navigation if needed */}
-                </Button>
-              </div>
 
               <TabsContent value="fila">
                 <div className="mb-2">
@@ -898,135 +886,125 @@ export default function Dashboard() {
                 {renderQueueView()}
               </TabsContent>
 
-              <TabsContent value="dia">
-                {/* Date bar */}
-                {renderDateBar()}
-
-                {/* Day Navigation */}
-                <div className="flex items-center justify-between mb-2">
+              <TabsContent value="agenda">
+                {/* Sub-navigation for Dia / Mês */}
+                <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5 mb-2">
                   <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => navigate(-1)}
-                    className="h-8 w-8 active:scale-90 transition-transform"
+                    variant={agendaSubView === "dia" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setAgendaSubView("dia")}
+                    className="flex-1 text-[11px] h-7"
                   >
-                    <ChevronLeft className="h-4 w-4" />
+                    Dia
                   </Button>
-                  <div className="text-center flex-1 mx-2" onClick={goToday}>
-                    <h2 className="text-[13px] font-semibold text-foreground capitalize">{headerLabel}</h2>
-                    <p className="text-[10px] text-muted-foreground">{format(currentDate, "MMMM yyyy", { locale: ptBR })}</p>
-                  </div>
                   <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => navigate(1)}
-                    className="h-8 w-8 active:scale-90 transition-transform"
+                    variant={agendaSubView === "mes" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setAgendaSubView("mes")}
+                    className="flex-1 text-[11px] h-7"
                   >
-                    <ChevronRight className="h-4 w-4" />
+                    Mês
                   </Button>
                 </div>
 
-                {!isSameDay(currentDate, new Date()) && (
-                  <div className="flex justify-center mb-2">
-                    <Button variant="ghost" size="sm" onClick={goToday} className="text-[11px] h-7 px-3">
-                      Ir para hoje
-                    </Button>
-                  </div>
+                {agendaSubView === "dia" && (
+                  <>
+                    {renderDateBar()}
+                    <div className="flex items-center justify-between mb-2">
+                      <Button variant="outline" size="icon" onClick={() => navigate(-1)} className="h-8 w-8 active:scale-90 transition-transform">
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <div className="text-center flex-1 mx-2" onClick={goToday}>
+                        <h2 className="text-[13px] font-semibold text-foreground capitalize">{headerLabel}</h2>
+                        <p className="text-[10px] text-muted-foreground">{format(currentDate, "MMMM yyyy", { locale: ptBR })}</p>
+                      </div>
+                      <Button variant="outline" size="icon" onClick={() => navigate(1)} className="h-8 w-8 active:scale-90 transition-transform">
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {!isSameDay(currentDate, new Date()) && (
+                      <div className="flex justify-center mb-2">
+                        <Button variant="ghost" size="sm" onClick={goToday} className="text-[11px] h-7 px-3">Ir para hoje</Button>
+                      </div>
+                    )}
+                    <Card className="overflow-hidden">
+                      <CardContent className="p-0">
+                        <ScrollArea className="h-[calc(100vh-300px)]">
+                          {renderMobileDayView()}
+                        </ScrollArea>
+                      </CardContent>
+                    </Card>
+                  </>
                 )}
 
-                <Card className="overflow-hidden">
-                  <CardContent className="p-0">
-                    <ScrollArea className="h-[calc(100vh-300px)]">
-                      {renderMobileDayView()}
-                    </ScrollArea>
-                  </CardContent>
-                </Card>
+                {agendaSubView === "mes" && (
+                  <>
+                    {renderMobileMonthView()}
+                    <div className="mt-3 space-y-2">
+                      <Card>
+                        <CardHeader className="pb-1.5 px-3 pt-3">
+                          <CardTitle className="text-[12px] font-semibold flex items-center gap-1.5">
+                            <CalendarIcon className="h-3.5 w-3.5 text-primary" />
+                            Agendamentos Recentes
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="px-3 pb-3 space-y-1.5">
+                          {recentScheduled.length === 0 && (
+                            <p className="text-[11px] text-muted-foreground">Nenhum agendamento recente.</p>
+                          )}
+                          {recentScheduled.slice(0, 3).map((apt) => (
+                            <div
+                              key={apt.id}
+                              className="flex items-center gap-2 p-2 rounded-md bg-secondary/50 active:bg-secondary active:scale-[0.98] transition-all"
+                              onClick={() => openAppointment(apt)}
+                            >
+                              <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                                <User className="h-3 w-3 text-primary" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-[12px] font-medium text-foreground truncate">{apt.nome_cliente}</div>
+                                <div className="text-[10px] text-muted-foreground truncate">{apt.servico} · {apt.data} {formatStartTime(apt.hora)}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader className="pb-1.5 px-3 pt-3">
+                          <CardTitle className="text-[12px] font-semibold flex items-center gap-1.5">
+                            <X className="h-3.5 w-3.5 text-destructive" />
+                            Cancelamentos Recentes
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="px-3 pb-3 space-y-1.5">
+                          {recentCancelled.length === 0 && (
+                            <p className="text-[11px] text-muted-foreground">Nenhum cancelamento recente.</p>
+                          )}
+                          {recentCancelled.slice(0, 3).map((apt) => (
+                            <div
+                              key={apt.id}
+                              className="flex items-center gap-2 p-2 rounded-md bg-destructive/5 active:bg-destructive/10 active:scale-[0.98] transition-all"
+                            >
+                              <div className="w-7 h-7 rounded-full bg-destructive/15 flex items-center justify-center shrink-0">
+                                <User className="h-3 w-3 text-destructive" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-[12px] font-medium text-foreground truncate">{apt.nome_cliente}</div>
+                                <div className="text-[10px] text-muted-foreground truncate">{apt.servico} · {apt.data} {formatStartTime(apt.hora)}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </>
+                )}
               </TabsContent>
 
-              <TabsContent value="mes">
-                {renderMobileMonthView()}
-
-                {/* Recent Appointments below month view */}
-                <div className="mt-3 space-y-2">
-                  <Card>
-                    <CardHeader className="pb-1.5 px-3 pt-3">
-                      <CardTitle className="text-[12px] font-semibold flex items-center gap-1.5">
-                        <CalendarIcon className="h-3.5 w-3.5 text-primary" />
-                        Agendamentos Recentes
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-3 pb-3 space-y-1.5">
-                      {recentScheduled.length === 0 && (
-                        <p className="text-[11px] text-muted-foreground">Nenhum agendamento recente.</p>
-                      )}
-                      {recentScheduled.slice(0, 3).map((apt) => (
-                        <div
-                          key={apt.id}
-                          className="flex items-center gap-2 p-2 rounded-md bg-secondary/50 active:bg-secondary active:scale-[0.98] transition-all"
-                          onClick={() => openAppointment(apt)}
-                        >
-                          <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-                            <User className="h-3 w-3 text-primary" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="text-[12px] font-medium text-foreground truncate">{apt.nome_cliente}</div>
-                            <div className="text-[10px] text-muted-foreground truncate">{apt.servico} · {apt.data} {formatStartTime(apt.hora)}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-1.5 px-3 pt-3">
-                      <CardTitle className="text-[12px] font-semibold flex items-center gap-1.5">
-                        <X className="h-3.5 w-3.5 text-destructive" />
-                        Cancelamentos Recentes
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-3 pb-3 space-y-1.5">
-                      {recentCancelled.length === 0 && (
-                        <p className="text-[11px] text-muted-foreground">Nenhum cancelamento recente.</p>
-                      )}
-                      {recentCancelled.slice(0, 3).map((apt) => (
-                        <div
-                          key={apt.id}
-                          className="flex items-center gap-2 p-2 rounded-md bg-destructive/5 active:bg-destructive/10 active:scale-[0.98] transition-all"
-                        >
-                          <div className="w-7 h-7 rounded-full bg-destructive/15 flex items-center justify-center shrink-0">
-                            <User className="h-3 w-3 text-destructive" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="text-[12px] font-medium text-foreground truncate">{apt.nome_cliente}</div>
-                            <div className="text-[10px] text-muted-foreground truncate">{apt.servico} · {apt.data} {formatStartTime(apt.hora)}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-                </div>
+              <TabsContent value="servicos">
+                <DashboardServicos />
               </TabsContent>
             </Tabs>
-
-            {/* Serviços link */}
-            <div className="mt-4">
-              <Button
-                variant="outline"
-                className="w-full h-10 gap-2 text-[12px]"
-                onClick={() => {
-                  // Navigate to a temporary servicos overlay
-                  const el = document.getElementById("mobile-servicos-section");
-                  if (el) el.scrollIntoView({ behavior: "smooth" });
-                }}
-              >
-                <Settings className="h-3.5 w-3.5" />
-                Gerenciar Serviços
-              </Button>
-            </div>
-
-            <div id="mobile-servicos-section" className="mt-4">
-              <DashboardServicos />
-            </div>
           </div>
 
           {renderFAB()}
