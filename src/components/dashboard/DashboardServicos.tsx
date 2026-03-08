@@ -242,52 +242,53 @@ export default function DashboardServicos() {
                 onTouchEnd={handleTouchEnd}
                 onContextMenu={(e) => e.preventDefault()}
               >
-            <div className="flex items-center gap-2 px-2.5 py-2">
-              <div className="shrink-0 touch-none">
-                <GripVertical className="h-4 w-4 text-muted-foreground/50" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[13px] font-semibold text-foreground truncate">{s.nome}</div>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-[12px] font-bold text-primary">R$ {s.preco.toFixed(2)}</span>
-                      <Badge
-                        variant={s.ativo ? "default" : "secondary"}
-                        className="text-[9px] px-1.5 py-0 h-4"
-                      >
-                        {s.ativo ? "Ativo" : "Inativo"}
-                      </Badge>
+                <div className="flex items-center gap-2 px-2.5 py-2">
+                  <div className="shrink-0 touch-none">
+                    <GripVertical className="h-4 w-4 text-muted-foreground/50" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[13px] font-semibold text-foreground truncate">{s.nome}</div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[12px] font-bold text-primary">R$ {s.preco.toFixed(2)}</span>
+                          <Badge
+                            variant={s.ativo ? "default" : "secondary"}
+                            className="text-[9px] px-1.5 py-0 h-4"
+                          >
+                            {s.ativo ? "Ativo" : "Inativo"}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 active:scale-90 transition-transform"
+                          onClick={() => openEdit(s)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 active:scale-90 transition-transform"
+                          onClick={() => handleToggleAtivo(s)}
+                        >
+                          <span className="text-[10px]">{s.ativo ? "Off" : "On"}</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive active:scale-90 transition-transform"
+                          onClick={() => setDeleteTarget(s)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 active:scale-90 transition-transform"
-                      onClick={() => openEdit(s)}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 active:scale-90 transition-transform"
-                      onClick={() => handleToggleAtivo(s)}
-                    >
-                      <span className="text-[10px]">{s.ativo ? "Off" : "On"}</span>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive active:scale-90 transition-transform"
-                      onClick={() => setDeleteTarget(s)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
                 </div>
-              </div>
               </div>
               {isOver && draggingIndex !== null && draggingIndex < index && (
                 <div className="h-1 bg-primary/40 rounded-full mx-4 mt-1 animate-fade-in" />
