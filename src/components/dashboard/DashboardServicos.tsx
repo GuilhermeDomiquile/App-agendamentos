@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,23 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Plus, Pencil, Trash2, GripVertical } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  DragOverlay,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface Servico {
   id: number;
@@ -22,6 +39,93 @@ interface Servico {
   preco: number;
   ativo: boolean;
   ordem: number;
+}
+
+// Sortable card for mobile
+function SortableServiceCard({
+  servico,
+  onEdit,
+  onToggle,
+  onDelete,
+}: {
+  servico: Servico;
+  onEdit: (s: Servico) => void;
+  onToggle: (s: Servico) => void;
+  onDelete: (s: Servico) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: servico.id,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    userSelect: "none" as const,
+    WebkitUserSelect: "none" as const,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`rounded-lg border bg-card shadow-sm overflow-hidden transition-shadow duration-200 ${
+        isDragging ? "scale-[1.04] shadow-xl ring-2 ring-primary/40 z-20 relative opacity-90" : ""
+      }`}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      <div className="flex items-center gap-2 px-2.5 py-2">
+        <div
+          className="shrink-0 touch-none cursor-grab active:cursor-grabbing"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-4 w-4 text-muted-foreground/50" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-semibold text-foreground truncate">{servico.nome}</div>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-[12px] font-bold text-primary">R$ {servico.preco.toFixed(2)}</span>
+                <Badge
+                  variant={servico.ativo ? "default" : "secondary"}
+                  className="text-[9px] px-1.5 py-0 h-4"
+                >
+                  {servico.ativo ? "Ativo" : "Inativo"}
+                </Badge>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 active:scale-90 transition-transform"
+                onClick={() => onEdit(servico)}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 active:scale-90 transition-transform"
+                onClick={() => onToggle(servico)}
+              >
+                <span className="text-[10px]">{servico.ativo ? "Off" : "On"}</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive active:scale-90 transition-transform"
+                onClick={() => onDelete(servico)}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function DashboardServicos() {
@@ -34,16 +138,12 @@ export default function DashboardServicos() {
   const [form, setForm] = useState({ nome: "", preco: "" });
   const [editAtivo, setEditAtivo] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [activeId, setActiveId] = useState<number | null>(null);
 
-  // Drag state for both mouse and touch
-  const dragItem = useRef<number | null>(null);
-  const dragOverItem = useRef<number | null>(null);
-  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const touchStartY = useRef<number>(0);
-  const touchStartX = useRef<number>(0);
-  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 8 } })
+  );
 
   const fetchServicos = async () => {
     const { data } = await supabase
@@ -126,84 +226,18 @@ export default function DashboardServicos() {
     fetchServicos();
   };
 
-  // Mouse drag handlers (desktop)
-  const handleDragStart = (index: number) => {
-    dragItem.current = index;
-  };
-  const handleDragEnter = (index: number) => {
-    dragOverItem.current = index;
-  };
-  const handleDragEnd = async () => {
-    if (dragItem.current === null || dragOverItem.current === null || dragItem.current === dragOverItem.current) {
-      dragItem.current = null;
-      dragOverItem.current = null;
-      return;
-    }
-    await reorderItems(dragItem.current, dragOverItem.current);
-    dragItem.current = null;
-    dragOverItem.current = null;
-  };
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+    if (!over || active.id === over.id) return;
 
-  // Touch drag handlers (mobile)
-  const handleTouchStart = useCallback((index: number, e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0].clientY;
-    touchStartX.current = e.touches[0].clientX;
-    longPressTimer.current = setTimeout(() => {
-      setDraggingIndex(index);
-      setDragOverIndex(index);
-      dragItem.current = index;
-      dragOverItem.current = index;
-      if (navigator.vibrate) navigator.vibrate(30);
-    }, 300);
-  }, []);
+    const oldIndex = servicos.findIndex(s => s.id === active.id);
+    const newIndex = servicos.findIndex(s => s.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (draggingIndex === null) {
-      const dy = Math.abs(e.touches[0].clientY - touchStartY.current);
-      const dx = Math.abs(e.touches[0].clientX - touchStartX.current);
-      if ((dy > 8 || dx > 8) && longPressTimer.current) {
-        clearTimeout(longPressTimer.current);
-        longPressTimer.current = null;
-      }
-      return;
-    }
-    e.preventDefault();
-    const touch = e.touches[0];
-    for (let i = 0; i < cardRefs.current.length; i++) {
-      const ref = cardRefs.current[i];
-      if (ref) {
-        const rect = ref.getBoundingClientRect();
-        const midY = rect.top + rect.height / 2;
-        if (touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
-          if (i !== dragOverItem.current) {
-            dragOverItem.current = i;
-            setDragOverIndex(i);
-          }
-          break;
-        }
-      }
-    }
-  }, [draggingIndex]);
-
-  const handleTouchEnd = useCallback(async () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-    if (draggingIndex !== null && dragOverItem.current !== null && draggingIndex !== dragOverItem.current) {
-      await reorderItems(draggingIndex, dragOverItem.current);
-    }
-    setDraggingIndex(null);
-    setDragOverIndex(null);
-    dragItem.current = null;
-    dragOverItem.current = null;
-  }, [draggingIndex]);
-
-  const reorderItems = async (fromIndex: number, toIndex: number) => {
-    const reordered = [...servicos];
-    const [removed] = reordered.splice(fromIndex, 1);
-    reordered.splice(toIndex, 0, removed);
+    const reordered = arrayMove(servicos, oldIndex, newIndex);
     setServicos(reordered);
+
     const updates = reordered.map((s, i) =>
       supabase.from("servicos").update({ ordem: i + 1 }).eq("id", s.id)
     );
@@ -211,7 +245,9 @@ export default function DashboardServicos() {
     fetchServicos();
   };
 
-  // Mobile card layout — compact ~70-80px cards
+  const activeServico = activeId ? servicos.find(s => s.id === activeId) : null;
+
+  // Mobile card layout with dnd-kit
   const renderMobileCards = () => {
     if (loading) {
       return <p className="text-center text-muted-foreground py-6 text-[12px]">Carregando...</p>;
@@ -220,86 +256,90 @@ export default function DashboardServicos() {
       return <p className="text-center text-muted-foreground py-6 text-[12px]">Nenhum serviço cadastrado.</p>;
     }
     return (
-      <div className="space-y-1.5">
-        {servicos.map((s, index) => {
-          const isDragging = draggingIndex === index;
-          const isOver = dragOverIndex === index && draggingIndex !== null && draggingIndex !== index;
-          return (
-            <div key={s.id}>
-              {isOver && draggingIndex !== null && draggingIndex > index && (
-                <div className="h-1 bg-primary/40 rounded-full mx-4 mb-1 animate-fade-in" />
-              )}
-              <div
-                ref={(el) => { cardRefs.current[index] = el; }}
-                style={{ userSelect: "none", WebkitUserSelect: "none" }}
-                className={`rounded-lg border bg-card shadow-sm overflow-hidden transition-all duration-200 ${
-                  isDragging
-                    ? "scale-[1.04] shadow-xl ring-2 ring-primary/40 z-20 relative opacity-90"
-                    : ""
-                }`}
-                onTouchStart={(e) => handleTouchStart(index, e)}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-                onContextMenu={(e) => e.preventDefault()}
-              >
-                <div className="flex items-center gap-2 px-2.5 py-2">
-                  <div className="shrink-0 touch-none">
-                    <GripVertical className="h-4 w-4 text-muted-foreground/50" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="text-[13px] font-semibold text-foreground truncate">{s.nome}</div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-[12px] font-bold text-primary">R$ {s.preco.toFixed(2)}</span>
-                          <Badge
-                            variant={s.ativo ? "default" : "secondary"}
-                            className="text-[9px] px-1.5 py-0 h-4"
-                          >
-                            {s.ativo ? "Ativo" : "Inativo"}
-                          </Badge>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 active:scale-90 transition-transform"
-                          onClick={() => openEdit(s)}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 active:scale-90 transition-transform"
-                          onClick={() => handleToggleAtivo(s)}
-                        >
-                          <span className="text-[10px]">{s.ativo ? "Off" : "On"}</span>
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive active:scale-90 transition-transform"
-                          onClick={() => setDeleteTarget(s)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={(event) => setActiveId(event.active.id as number)}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={servicos.map(s => s.id)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-1.5">
+            {servicos.map((s) => (
+              <SortableServiceCard
+                key={s.id}
+                servico={s}
+                onEdit={openEdit}
+                onToggle={handleToggleAtivo}
+                onDelete={setDeleteTarget}
+              />
+            ))}
+            <p className="text-[10px] text-muted-foreground/50 text-center pt-1">Segure e arraste para reordenar</p>
+          </div>
+        </SortableContext>
+        <DragOverlay>
+          {activeServico ? (
+            <div className="rounded-lg border bg-card shadow-xl ring-2 ring-primary/40 scale-[1.04] opacity-90 overflow-hidden">
+              <div className="flex items-center gap-2 px-2.5 py-2">
+                <GripVertical className="h-4 w-4 text-muted-foreground/50 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-semibold text-foreground truncate">{activeServico.nome}</div>
+                  <span className="text-[12px] font-bold text-primary">R$ {activeServico.preco.toFixed(2)}</span>
                 </div>
               </div>
-              {isOver && draggingIndex !== null && draggingIndex < index && (
-                <div className="h-1 bg-primary/40 rounded-full mx-4 mt-1 animate-fade-in" />
-              )}
             </div>
-          );
-        })}
-        <p className="text-[10px] text-muted-foreground/50 text-center pt-1">Segure e arraste para reordenar</p>
-      </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
     );
   };
+
+  // Desktop table with dnd-kit
+  const renderDesktopTable = () => (
+    <Card>
+      <CardContent className="p-0">
+        <DndContext
+          sensors={useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10"></TableHead>
+                <TableHead>Nome do Serviço</TableHead>
+                <TableHead>Preço</TableHead>
+                <TableHead>Ativo</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">Carregando...</TableCell>
+                </TableRow>
+              ) : servicos.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">Nenhum serviço cadastrado.</TableCell>
+                </TableRow>
+              ) : (
+                <SortableContext items={servicos.map(s => s.id)} strategy={verticalListSortingStrategy}>
+                  {servicos.map((s) => (
+                    <SortableTableRow
+                      key={s.id}
+                      servico={s}
+                      onEdit={openEdit}
+                      onToggle={handleToggleAtivo}
+                      onDelete={setDeleteTarget}
+                    />
+                  ))}
+                </SortableContext>
+              )}
+            </TableBody>
+          </Table>
+        </DndContext>
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="space-y-3 sm:space-y-6">
@@ -319,69 +359,7 @@ export default function DashboardServicos() {
         </Button>
       </div>
 
-      {isMobile ? (
-        renderMobileCards()
-      ) : (
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10"></TableHead>
-                  <TableHead>Nome do Serviço</TableHead>
-                  <TableHead>Preço</TableHead>
-                  <TableHead>Ativo</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">Carregando...</TableCell>
-                  </TableRow>
-                ) : servicos.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">Nenhum serviço cadastrado.</TableCell>
-                  </TableRow>
-                ) : (
-                  servicos.map((s, index) => (
-                    <TableRow
-                      key={s.id}
-                      className="hover:bg-secondary/50 transition-colors cursor-grab active:cursor-grabbing"
-                      draggable
-                      onDragStart={() => handleDragStart(index)}
-                      onDragEnter={() => handleDragEnter(index)}
-                      onDragEnd={handleDragEnd}
-                      onDragOver={(e) => e.preventDefault()}
-                    >
-                      <TableCell>
-                        <GripVertical className="h-4 w-4 text-muted-foreground" />
-                      </TableCell>
-                      <TableCell className="font-medium">{s.nome}</TableCell>
-                      <TableCell>R$ {s.preco.toFixed(2)}</TableCell>
-                      <TableCell>
-                        <Switch checked={s.ativo} onCheckedChange={() => handleToggleAtivo(s)} />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button variant="ghost" size="icon" onClick={() => openEdit(s)}
-                            className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-colors">
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(s)}
-                            className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive transition-colors">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
+      {isMobile ? renderMobileCards() : renderDesktopTable()}
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-md max-w-[calc(100vw-2rem)]">
@@ -423,12 +401,65 @@ export default function DashboardServicos() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="h-9 sm:h-11 text-[12px] sm:text-sm">Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 h-9 sm:h-11 text-[12px] sm:text-sm">
+            <AlertDialogAction onClick={handleDelete} className="h-9 sm:h-11 text-[12px] sm:text-sm bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+// Sortable table row for desktop
+function SortableTableRow({
+  servico,
+  onEdit,
+  onToggle,
+  onDelete,
+}: {
+  servico: Servico;
+  onEdit: (s: Servico) => void;
+  onToggle: (s: Servico) => void;
+  onDelete: (s: Servico) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: servico.id,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <TableRow
+      ref={setNodeRef}
+      style={style}
+      className={`hover:bg-secondary/50 transition-colors ${isDragging ? "opacity-50" : ""}`}
+    >
+      <TableCell>
+        <div className="cursor-grab active:cursor-grabbing" {...attributes} {...listeners}>
+          <GripVertical className="h-4 w-4 text-muted-foreground" />
+        </div>
+      </TableCell>
+      <TableCell className="font-medium">{servico.nome}</TableCell>
+      <TableCell>R$ {servico.preco.toFixed(2)}</TableCell>
+      <TableCell>
+        <Switch checked={servico.ativo} onCheckedChange={() => onToggle(servico)} />
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-2">
+          <Button variant="ghost" size="icon" onClick={() => onEdit(servico)}
+            className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-colors">
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => onDelete(servico)}
+            className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive transition-colors">
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }
