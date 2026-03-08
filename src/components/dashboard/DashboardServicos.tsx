@@ -288,9 +288,13 @@ export default function DashboardServicos() {
                   </div>
                 </div>
               </div>
+              </div>
+              {isOver && draggingIndex !== null && draggingIndex < index && (
+                <div className="h-1 bg-primary/40 rounded-full mx-4 mt-1 animate-fade-in" />
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
         <p className="text-[10px] text-muted-foreground/50 text-center pt-1">Segure e arraste para reordenar</p>
       </div>
     );
