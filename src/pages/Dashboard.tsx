@@ -601,7 +601,7 @@ export default function Dashboard() {
                   <div
                     key={i}
                     className={`min-h-[52px] border-r border-b border-border last:border-r-0 p-1 cursor-pointer transition-colors active:bg-secondary/50 ${!isCurrentMonth ? "opacity-30" : ""}`}
-                    onClick={() => { setCurrentDate(day); setMobileView("dia"); }}
+                    onClick={() => { setCurrentDate(day); setAgendaSubView("dia"); }}
                   >
                     <span className={`text-[11px] font-medium inline-flex items-center justify-center w-5 h-5 rounded-full ${isToday ? "bg-primary text-primary-foreground" : "text-foreground"}`}>
                       {format(day, "d")}
