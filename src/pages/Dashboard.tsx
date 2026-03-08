@@ -15,7 +15,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ChevronLeft, ChevronRight, Phone, Clock, User, Scissors, Calendar as CalendarIcon, X, CheckCircle2, Settings, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Phone, Clock, User, Scissors, Calendar as CalendarIcon, X, CheckCircle2, Settings, Plus, ListOrdered, UserPlus } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, startOfWeek, endOfWeek, isSameMonth, isSameDay, addDays, subDays, addMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import DashboardServicos from "@/components/dashboard/DashboardServicos";
@@ -400,6 +400,126 @@ export default function Dashboard() {
     );
   };
 
+  // Mobile Queue View — shows today's confirmed appointments as a simple queue
+  const renderMobileQueueView = () => {
+    const todayStr = format(new Date(), "yyyy-MM-dd");
+    const todayApts = appointments
+      .filter(a => a.data === todayStr && a.status === "confirmado")
+      .sort((a, b) => a.hora.localeCompare(b.hora));
+
+    if (todayApts.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <ListOrdered className="h-10 w-10 text-muted-foreground/30 mb-3" />
+          <p className="text-sm text-muted-foreground">Nenhum atendimento confirmado para hoje.</p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-4 h-9 text-[12px]"
+            onClick={() => openBookingModal(todayStr, "08:00")}
+          >
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            Agendar cliente
+          </Button>
+        </div>
+      );
+    }
+
+    // Build queue items: appointments + gaps between them
+    const queueItems: { type: "appointment"; apt: Appointment }[] | { type: "gap"; hora: string; dateStr: string }[] = [];
+    const items: Array<{ type: "appointment"; apt: Appointment } | { type: "gap"; hora: string; dateStr: string }> = [];
+
+    for (let i = 0; i < todayApts.length; i++) {
+      const apt = todayApts[i];
+      
+      // Check for gap before first appointment or between appointments
+      if (i === 0) {
+        // Add gap slots before first appointment if there's time
+        const firstHora = apt.hora.substring(0, 5);
+        const [fh, fm] = firstHora.split(":").map(Number);
+        const firstMinutes = fh * 60 + fm;
+        // Show gap if first appointment is after 06:00
+        if (firstMinutes > 360) {
+          // Show one "encaixar" slot 30 min before
+          const gapMinutes = firstMinutes - 30;
+          const gapH = String(Math.floor(gapMinutes / 60)).padStart(2, "0");
+          const gapM = String(gapMinutes % 60).padStart(2, "0");
+          items.push({ type: "gap", hora: `${gapH}:${gapM}`, dateStr: todayStr });
+        }
+      }
+
+      items.push({ type: "appointment", apt });
+
+      // Check gap after this appointment
+      const endHora = getEndTime(apt.hora);
+      if (i < todayApts.length - 1) {
+        const nextHora = todayApts[i + 1].hora.substring(0, 5);
+        if (endHora < nextHora) {
+          items.push({ type: "gap", hora: endHora, dateStr: todayStr });
+        }
+      } else {
+        // After last appointment, show one gap slot
+        items.push({ type: "gap", hora: endHora, dateStr: todayStr });
+      }
+    }
+
+    return (
+      <div className="space-y-2">
+        {items.map((item, idx) => {
+          if (item.type === "appointment") {
+            return (
+              <div
+                key={item.apt.id}
+                className="rounded-xl border border-border bg-card p-4 active:scale-[0.98] transition-all cursor-pointer shadow-sm"
+                onClick={() => openAppointment(item.apt)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-12 text-center shrink-0">
+                    <div className="text-lg font-bold text-foreground leading-tight">
+                      {formatStartTime(item.apt.hora)}
+                    </div>
+                  </div>
+                  <div className="h-10 w-[3px] rounded-full bg-primary shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-foreground truncate">
+                      {item.apt.nome_cliente}
+                    </div>
+                    <div className="text-xs text-muted-foreground truncate flex items-center gap-1.5 mt-0.5">
+                      <Scissors className="h-3 w-3 shrink-0" />
+                      {item.apt.servico}
+                    </div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0" />
+                </div>
+              </div>
+            );
+          }
+
+          // Gap slot
+          return (
+            <div
+              key={`gap-${idx}-${item.hora}`}
+              className="rounded-xl border border-dashed border-border/60 bg-secondary/30 px-4 py-3 active:scale-[0.98] active:bg-secondary/60 transition-all cursor-pointer"
+              onClick={() => openBookingModal(item.dateStr, item.hora)}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-12 text-center shrink-0">
+                  <div className="text-sm font-medium text-muted-foreground/70">
+                    {item.hora}
+                  </div>
+                </div>
+                <div className="flex-1 flex items-center gap-2">
+                  <UserPlus className="h-4 w-4 text-primary/50" />
+                  <span className="text-[13px] text-primary/70 font-medium">Encaixar cliente</span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   // Mobile calendar rendering
   if (isMobile) {
     return (
@@ -418,17 +538,33 @@ export default function Dashboard() {
           </header>
 
           <div className="px-3 pt-2 pb-4">
-            <Tabs defaultValue="calendario" className="w-full">
+            <Tabs defaultValue="fila" className="w-full">
               <TabsList className="mb-2 w-full h-9">
+                <TabsTrigger value="fila" className="gap-1 flex-1 text-[12px] h-7">
+                  <ListOrdered className="h-3 w-3" />
+                  Fila
+                </TabsTrigger>
                 <TabsTrigger value="calendario" className="gap-1 flex-1 text-[12px] h-7">
                   <CalendarIcon className="h-3 w-3" />
-                  Calendário
+                  Agenda
                 </TabsTrigger>
                 <TabsTrigger value="servicos" className="gap-1 flex-1 text-[12px] h-7">
                   <Settings className="h-3 w-3" />
                   Serviços
                 </TabsTrigger>
               </TabsList>
+
+              <TabsContent value="fila">
+                <div className="mb-2">
+                  <h2 className="text-[13px] font-semibold text-foreground">
+                    Fila de Atendimentos — {format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}
+                  </h2>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {appointments.filter(a => a.data === format(new Date(), "yyyy-MM-dd")).length} atendimento(s) hoje
+                  </p>
+                </div>
+                {renderMobileQueueView()}
+              </TabsContent>
 
               <TabsContent value="calendario">
                 {/* Mobile Day Navigation */}
