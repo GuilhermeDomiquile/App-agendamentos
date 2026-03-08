@@ -538,17 +538,33 @@ export default function Dashboard() {
           </header>
 
           <div className="px-3 pt-2 pb-4">
-            <Tabs defaultValue="calendario" className="w-full">
+            <Tabs defaultValue="fila" className="w-full">
               <TabsList className="mb-2 w-full h-9">
+                <TabsTrigger value="fila" className="gap-1 flex-1 text-[12px] h-7">
+                  <ListOrdered className="h-3 w-3" />
+                  Fila
+                </TabsTrigger>
                 <TabsTrigger value="calendario" className="gap-1 flex-1 text-[12px] h-7">
                   <CalendarIcon className="h-3 w-3" />
-                  Calendário
+                  Agenda
                 </TabsTrigger>
                 <TabsTrigger value="servicos" className="gap-1 flex-1 text-[12px] h-7">
                   <Settings className="h-3 w-3" />
                   Serviços
                 </TabsTrigger>
               </TabsList>
+
+              <TabsContent value="fila">
+                <div className="mb-2">
+                  <h2 className="text-[13px] font-semibold text-foreground">
+                    Fila de Atendimentos — {format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}
+                  </h2>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {appointments.filter(a => a.data === format(new Date(), "yyyy-MM-dd")).length} atendimento(s) hoje
+                  </p>
+                </div>
+                {renderMobileQueueView()}
+              </TabsContent>
 
               <TabsContent value="calendario">
                 {/* Mobile Day Navigation */}
