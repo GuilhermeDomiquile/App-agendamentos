@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,8 +34,14 @@ export default function DashboardServicos() {
   const [form, setForm] = useState({ nome: "", preco: "" });
   const [editAtivo, setEditAtivo] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  // Drag state for both mouse and touch
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchStartY = useRef<number>(0);
+  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const fetchServicos = async () => {
     const { data } = await supabase
@@ -118,28 +124,78 @@ export default function DashboardServicos() {
     fetchServicos();
   };
 
+  // Mouse drag handlers (desktop)
   const handleDragStart = (index: number) => {
     dragItem.current = index;
   };
-
   const handleDragEnter = (index: number) => {
     dragOverItem.current = index;
   };
-
   const handleDragEnd = async () => {
     if (dragItem.current === null || dragOverItem.current === null || dragItem.current === dragOverItem.current) {
       dragItem.current = null;
       dragOverItem.current = null;
       return;
     }
-    const reordered = [...servicos];
-    const [removed] = reordered.splice(dragItem.current, 1);
-    reordered.splice(dragOverItem.current, 0, removed);
+    await reorderItems(dragItem.current, dragOverItem.current);
     dragItem.current = null;
     dragOverItem.current = null;
+  };
 
+  // Touch drag handlers (mobile)
+  const handleTouchStart = useCallback((index: number, e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+    longPressTimer.current = setTimeout(() => {
+      setDraggingIndex(index);
+      dragItem.current = index;
+      // Haptic feedback if available
+      if (navigator.vibrate) navigator.vibrate(30);
+    }, 300);
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (draggingIndex === null) {
+      // Cancel long press if moved too much
+      const dy = Math.abs(e.touches[0].clientY - touchStartY.current);
+      if (dy > 10 && longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+      }
+      return;
+    }
+    e.preventDefault();
+    const touch = e.touches[0];
+    // Find which card we're over
+    for (let i = 0; i < cardRefs.current.length; i++) {
+      const ref = cardRefs.current[i];
+      if (ref) {
+        const rect = ref.getBoundingClientRect();
+        if (touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+          dragOverItem.current = i;
+          break;
+        }
+      }
+    }
+  }, [draggingIndex]);
+
+  const handleTouchEnd = useCallback(async () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    if (draggingIndex !== null && dragOverItem.current !== null && draggingIndex !== dragOverItem.current) {
+      await reorderItems(draggingIndex, dragOverItem.current);
+    }
+    setDraggingIndex(null);
+    dragItem.current = null;
+    dragOverItem.current = null;
+  }, [draggingIndex]);
+
+  const reorderItems = async (fromIndex: number, toIndex: number) => {
+    const reordered = [...servicos];
+    const [removed] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, removed);
     setServicos(reordered);
-
     const updates = reordered.map((s, i) =>
       supabase.from("servicos").update({ ordem: i + 1 }).eq("id", s.id)
     );
@@ -147,93 +203,98 @@ export default function DashboardServicos() {
     fetchServicos();
   };
 
-  // Mobile card layout for services
+  // Mobile card layout — compact ~70-80px cards
   const renderMobileCards = () => {
     if (loading) {
-      return <p className="text-center text-muted-foreground py-8 text-sm">Carregando...</p>;
+      return <p className="text-center text-muted-foreground py-6 text-[12px]">Carregando...</p>;
     }
     if (servicos.length === 0) {
-      return <p className="text-center text-muted-foreground py-8 text-sm">Nenhum serviço cadastrado.</p>;
+      return <p className="text-center text-muted-foreground py-6 text-[12px]">Nenhum serviço cadastrado.</p>;
     }
     return (
-      <div className="space-y-3">
+      <div className="space-y-1.5">
         {servicos.map((s, index) => (
-          <Card
+          <div
             key={s.id}
-            className="overflow-hidden active:scale-[0.99] transition-transform"
-            draggable
-            onDragStart={() => handleDragStart(index)}
-            onDragEnter={() => handleDragEnter(index)}
-            onDragEnd={handleDragEnd}
-            onDragOver={(e) => e.preventDefault()}
+            ref={(el) => { cardRefs.current[index] = el; }}
+            className={`rounded-lg border bg-card shadow-sm overflow-hidden transition-all duration-200 ${
+              draggingIndex === index
+                ? "scale-[1.03] shadow-lg ring-1 ring-primary/30 z-20 relative"
+                : "active:scale-[0.99]"
+            }`}
+            onTouchStart={(e) => handleTouchStart(index, e)}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
           >
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <div className="pt-1 cursor-grab active:cursor-grabbing touch-none">
-                  <GripVertical className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="min-w-0">
-                      <h3 className="text-base font-semibold text-foreground truncate">{s.nome}</h3>
-                      <p className="text-lg font-bold text-primary mt-0.5">R$ {s.preco.toFixed(2)}</p>
+            <div className="flex items-center gap-2 px-2.5 py-2">
+              <div className="shrink-0 touch-none">
+                <GripVertical className="h-4 w-4 text-muted-foreground/50" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13px] font-semibold text-foreground truncate">{s.nome}</div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[12px] font-bold text-primary">R$ {s.preco.toFixed(2)}</span>
+                      <Badge
+                        variant={s.ativo ? "default" : "secondary"}
+                        className="text-[9px] px-1.5 py-0 h-4"
+                      >
+                        {s.ativo ? "Ativo" : "Inativo"}
+                      </Badge>
                     </div>
-                    <Badge
-                      variant={s.ativo ? "default" : "secondary"}
-                      className="shrink-0 text-xs"
-                    >
-                      {s.ativo ? "Ativo" : "Inativo"}
-                    </Badge>
                   </div>
-                  <div className="flex items-center gap-2 mt-3">
+                  <div className="flex items-center gap-1 shrink-0">
                     <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 h-10"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 active:scale-90 transition-transform"
                       onClick={() => openEdit(s)}
                     >
-                      <Pencil className="h-4 w-4 mr-1.5" />
-                      Editar
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-10 px-3"
-                      onClick={() => handleToggleAtivo(s)}
-                    >
-                      {s.ativo ? "Desativar" : "Ativar"}
+                      <Pencil className="h-3.5 w-3.5" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-10 w-10 hover:bg-destructive/10 hover:text-destructive"
+                      className="h-8 w-8 active:scale-90 transition-transform"
+                      onClick={() => handleToggleAtivo(s)}
+                    >
+                      <span className="text-[10px]">{s.ativo ? "Off" : "On"}</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive active:scale-90 transition-transform"
                       onClick={() => setDeleteTarget(s)}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         ))}
+        <p className="text-[10px] text-muted-foreground/50 text-center pt-1">Segure e arraste para reordenar</p>
       </div>
     );
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="flex items-center justify-between gap-3">
+    <div className="space-y-3 sm:space-y-6">
+      <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <h2 className="text-lg sm:text-xl font-bold text-foreground">Serviços</h2>
-          <p className="text-xs sm:text-sm text-muted-foreground">
+          <h2 className="text-sm sm:text-xl font-bold text-foreground">Serviços</h2>
+          <p className="text-[11px] sm:text-sm text-muted-foreground">
             {isMobile ? "Gerencie os serviços." : "Gerencie os serviços disponíveis para agendamento. Arraste para reordenar."}
           </p>
         </div>
-        <Button onClick={openCreate} className="hover:scale-[1.02] active:scale-[0.98] transition-transform h-10 shrink-0">
-          <Plus className="h-4 w-4 mr-1.5" />
-          <span className={isMobile ? "sr-only" : ""}>Adicionar Serviço</span>
-          {isMobile && <span>Novo</span>}
+        <Button
+          onClick={openCreate}
+          className="active:scale-90 transition-transform h-8 sm:h-10 text-[12px] sm:text-sm px-2.5 sm:px-4 shrink-0"
+        >
+          <Plus className="h-3.5 w-3.5 mr-1" />
+          {isMobile ? "Novo" : "Adicionar Serviço"}
         </Button>
       </div>
 
@@ -304,27 +365,27 @@ export default function DashboardServicos() {
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-md max-w-[calc(100vw-2rem)]">
           <DialogHeader>
-            <DialogTitle>{editing ? "Editar Serviço" : "Novo Serviço"}</DialogTitle>
+            <DialogTitle className="text-sm sm:text-base">{editing ? "Editar Serviço" : "Novo Serviço"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="nome">Nome</Label>
-              <Input id="nome" className="h-11" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} placeholder="Ex: Corte de cabelo" />
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="nome" className="text-[12px]">Nome</Label>
+              <Input id="nome" className="h-9 sm:h-11 text-[13px]" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} placeholder="Ex: Corte de cabelo" />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="preco">Preço (R$)</Label>
-              <Input id="preco" className="h-11" type="number" min="0" step="0.01" value={form.preco} onChange={(e) => setForm({ ...form, preco: e.target.value })} placeholder="Ex: 45.00" />
+            <div className="space-y-1.5">
+              <Label htmlFor="preco" className="text-[12px]">Preço (R$)</Label>
+              <Input id="preco" className="h-9 sm:h-11 text-[13px]" type="number" min="0" step="0.01" value={form.preco} onChange={(e) => setForm({ ...form, preco: e.target.value })} placeholder="Ex: 45.00" />
             </div>
             {editing && (
               <div className="flex items-center justify-between">
-                <Label htmlFor="ativo">Ativo</Label>
+                <Label htmlFor="ativo" className="text-[12px]">Ativo</Label>
                 <Switch id="ativo" checked={editAtivo} onCheckedChange={setEditAtivo} />
               </div>
             )}
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" className="h-11" onClick={() => setModalOpen(false)}>Cancelar</Button>
-            <Button className="h-11" onClick={handleSubmit} disabled={submitting}>
+            <Button variant="outline" className="h-9 sm:h-11 text-[12px] sm:text-sm" onClick={() => setModalOpen(false)}>Cancelar</Button>
+            <Button className="h-9 sm:h-11 text-[12px] sm:text-sm" onClick={handleSubmit} disabled={submitting}>
               {submitting ? "Salvando..." : editing ? "Salvar" : "Criar"}
             </Button>
           </DialogFooter>
@@ -334,14 +395,14 @@ export default function DashboardServicos() {
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
         <AlertDialogContent className="max-w-[calc(100vw-2rem)]">
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir serviço?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-sm sm:text-base">Excluir serviço?</AlertDialogTitle>
+            <AlertDialogDescription className="text-[12px] sm:text-sm">
               Tem certeza que deseja excluir "{deleteTarget?.nome}"? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="h-11">Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 h-11">
+            <AlertDialogCancel className="h-9 sm:h-11 text-[12px] sm:text-sm">Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 h-9 sm:h-11 text-[12px] sm:text-sm">
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
