@@ -140,10 +140,10 @@ export default function DashboardServicos() {
   const [submitting, setSubmitting] = useState(false);
   const [activeId, setActiveId] = useState<number | null>(null);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 8 } })
-  );
+  const pointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 8 } });
+  const touchSensor = useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 8 } });
+  const sensors = useSensors(pointerSensor, touchSensor);
+  const desktopSensors = useSensors(pointerSensor);
 
   const fetchServicos = async () => {
     const { data } = await supabase
@@ -298,7 +298,7 @@ export default function DashboardServicos() {
     <Card>
       <CardContent className="p-0">
         <DndContext
-          sensors={useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))}
+          sensors={desktopSensors}
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
         >
