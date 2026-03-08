@@ -479,7 +479,7 @@ export default function Dashboard() {
                     <CardHeader className="pb-1.5 px-3 pt-3">
                       <CardTitle className="text-[12px] font-semibold flex items-center gap-1.5">
                         <CalendarIcon className="h-3.5 w-3.5 text-primary" />
-                        Recentes
+                        Agendamentos Recentes
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="px-3 pb-3 space-y-1.5">
@@ -494,6 +494,34 @@ export default function Dashboard() {
                         >
                           <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
                             <User className="h-3 w-3 text-primary" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[12px] font-medium text-foreground truncate">{apt.nome_cliente}</div>
+                            <div className="text-[10px] text-muted-foreground truncate">{apt.servico} · {apt.data} {formatStartTime(apt.hora)}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-1.5 px-3 pt-3">
+                      <CardTitle className="text-[12px] font-semibold flex items-center gap-1.5">
+                        <X className="h-3.5 w-3.5 text-destructive" />
+                        Cancelamentos Recentes
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-3 pb-3 space-y-1.5">
+                      {recentCancelled.length === 0 && (
+                        <p className="text-[11px] text-muted-foreground">Nenhum cancelamento recente.</p>
+                      )}
+                      {recentCancelled.slice(0, 3).map((apt) => (
+                        <div
+                          key={apt.id}
+                          className="flex items-center gap-2 p-2 rounded-md bg-destructive/5 active:bg-destructive/10 active:scale-[0.98] transition-all"
+                        >
+                          <div className="w-7 h-7 rounded-full bg-destructive/15 flex items-center justify-center shrink-0">
+                            <User className="h-3 w-3 text-destructive" />
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="text-[12px] font-medium text-foreground truncate">{apt.nome_cliente}</div>
