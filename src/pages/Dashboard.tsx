@@ -252,11 +252,11 @@ export default function Dashboard() {
   };
 
   const navigate = (dir: number) => {
-    if (isMobile && mobileView === "dia") {
+    if (isMobile && mobileView === "agenda" && agendaSubView === "dia") {
       setCurrentDate(dir > 0 ? addDays(currentDate, 1) : subDays(currentDate, 1));
       return;
     }
-    if (isMobile && mobileView === "mes") {
+    if (isMobile && mobileView === "agenda" && agendaSubView === "mes") {
       setCurrentDate(dir > 0 ? addMonths(currentDate, 1) : subMonths(currentDate, 1));
       return;
     }
