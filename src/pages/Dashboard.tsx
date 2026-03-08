@@ -38,7 +38,7 @@ interface ServicoOption {
 }
 
 type ViewMode = "month" | "week" | "day";
-type MobileView = "fila" | "dia" | "mes";
+type MobileView = "fila" | "agenda" | "servicos";
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const SLOT_HEIGHT = 48;
