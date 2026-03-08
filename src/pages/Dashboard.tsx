@@ -518,6 +518,7 @@ export default function Dashboard() {
         })}
       </div>
     );
+  };
 
   // Mobile calendar rendering
   if (isMobile) {
