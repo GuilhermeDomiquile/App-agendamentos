@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,6 +38,7 @@ interface ServicoOption {
 }
 
 type ViewMode = "month" | "week" | "day";
+type MobileView = "fila" | "dia" | "mes";
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const SLOT_HEIGHT = 48;
@@ -82,9 +83,11 @@ export default function Dashboard() {
   const [recentCancelled, setRecentCancelled] = useState<Appointment[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>("month");
+  const [mobileView, setMobileView] = useState<MobileView>("fila");
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ type: "cancelado" | "finalizado"; id: string } | null>(null);
+  const [showDesktopQueue, setShowDesktopQueue] = useState(true);
 
   // Manual booking state
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
@@ -92,6 +95,42 @@ export default function Dashboard() {
   const [bookingForm, setBookingForm] = useState({ nome_cliente: "", telefone: "", servico: "", observacoes: "" });
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
   const [servicos, setServicos] = useState<ServicoOption[]>([]);
+
+  // Swipe gesture state
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const swiping = useRef(false);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    swiping.current = false;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const dx = e.touches[0].clientX - touchStartX.current;
+    const dy = e.touches[0].clientY - touchStartY.current;
+    // Only swipe if horizontal movement is dominant
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 30) {
+      swiping.current = true;
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    if (swiping.current && Math.abs(dx) > 60) {
+      if (dx < 0) {
+        setCurrentDate(prev => addDays(prev, 1));
+      } else {
+        setCurrentDate(prev => subDays(prev, 1));
+      }
+    }
+    touchStartX.current = null;
+    touchStartY.current = null;
+    swiping.current = false;
+  }, []);
 
   const fetchAppointments = async () => {
     const { data } = await supabase
@@ -212,8 +251,12 @@ export default function Dashboard() {
   };
 
   const navigate = (dir: number) => {
-    if (isMobile) {
+    if (isMobile && mobileView === "dia") {
       setCurrentDate(dir > 0 ? addDays(currentDate, 1) : subDays(currentDate, 1));
+      return;
+    }
+    if (isMobile && mobileView === "mes") {
+      setCurrentDate(dir > 0 ? addMonths(currentDate, 1) : subMonths(currentDate, 1));
       return;
     }
     if (viewMode === "month") setCurrentDate(dir > 0 ? addMonths(currentDate, 1) : subMonths(currentDate, 1));
@@ -234,6 +277,7 @@ export default function Dashboard() {
 
   const headerLabel = useMemo(() => {
     if (isMobile) {
+      if (mobileView === "mes") return format(currentDate, "MMMM yyyy", { locale: ptBR });
       return format(currentDate, "EEEE, d", { locale: ptBR });
     }
     if (viewMode === "month") return format(currentDate, "MMMM yyyy", { locale: ptBR });
@@ -243,7 +287,7 @@ export default function Dashboard() {
       return `${format(ws, "d MMM", { locale: ptBR })} — ${format(we, "d MMM yyyy", { locale: ptBR })}`;
     }
     return format(currentDate, "EEEE, d 'de' MMMM yyyy", { locale: ptBR });
-  }, [currentDate, viewMode, isMobile]);
+  }, [currentDate, viewMode, isMobile, mobileView]);
 
   const monthDays = useMemo(() => {
     const ms = startOfMonth(currentDate);
@@ -258,7 +302,14 @@ export default function Dashboard() {
     return Array.from({ length: 7 }, (_, i) => addDays(ws, i));
   }, [currentDate]);
 
+  // Horizontal date bar for mobile
+  const datebar = useMemo(() => {
+    const ws = startOfWeek(currentDate, { weekStartsOn: 1 });
+    return Array.from({ length: 7 }, (_, i) => addDays(ws, i));
+  }, [currentDate]);
+
   const dayNames = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+  const dayNamesShort = ["S", "T", "Q", "Q", "S", "S", "D"];
 
   const formatStartTime = (hora: string) => hora?.substring(0, 5) || hora;
 
@@ -354,10 +405,14 @@ export default function Dashboard() {
     dayApts.forEach(a => aptMap.set(a.hora, a));
 
     return (
-      <div className="divide-y divide-border/50">
+      <div
+        className="divide-y divide-border/50"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         {MOBILE_SLOTS.map((slot) => {
           const apt = aptMap.get(slot) || aptMap.get(`${slot}:00`);
-          const isBooked = bookedSlots.has(slot) || bookedSlots.has(`${slot}:00`);
 
           if (apt) {
             return (
@@ -400,11 +455,11 @@ export default function Dashboard() {
     );
   };
 
-  // Mobile Queue View — shows today's confirmed appointments as a simple queue
-  const renderMobileQueueView = () => {
-    const todayStr = format(new Date(), "yyyy-MM-dd");
+  // Queue View — shows today's confirmed appointments as a simple queue (shared between mobile & desktop)
+  const renderQueueView = (forDate?: string) => {
+    const targetDate = forDate || format(new Date(), "yyyy-MM-dd");
     const todayApts = appointments
-      .filter(a => a.data === todayStr && a.status === "confirmado")
+      .filter(a => a.data === targetDate && a.status === "confirmado")
       .sort((a, b) => a.hora.localeCompare(b.hora));
 
     if (todayApts.length === 0) {
@@ -416,7 +471,7 @@ export default function Dashboard() {
             variant="outline"
             size="sm"
             className="mt-4 h-9 text-[12px]"
-            onClick={() => openBookingModal(todayStr, "08:00")}
+            onClick={() => openBookingModal(targetDate, "08:00")}
           >
             <Plus className="h-3.5 w-3.5 mr-1" />
             Agendar cliente
@@ -425,41 +480,33 @@ export default function Dashboard() {
       );
     }
 
-    // Build queue items: appointments + gaps between them
-    const queueItems: { type: "appointment"; apt: Appointment }[] | { type: "gap"; hora: string; dateStr: string }[] = [];
     const items: Array<{ type: "appointment"; apt: Appointment } | { type: "gap"; hora: string; dateStr: string }> = [];
 
     for (let i = 0; i < todayApts.length; i++) {
       const apt = todayApts[i];
-      
-      // Check for gap before first appointment or between appointments
+
       if (i === 0) {
-        // Add gap slots before first appointment if there's time
         const firstHora = apt.hora.substring(0, 5);
         const [fh, fm] = firstHora.split(":").map(Number);
         const firstMinutes = fh * 60 + fm;
-        // Show gap if first appointment is after 06:00
         if (firstMinutes > 360) {
-          // Show one "encaixar" slot 30 min before
           const gapMinutes = firstMinutes - 30;
           const gapH = String(Math.floor(gapMinutes / 60)).padStart(2, "0");
           const gapM = String(gapMinutes % 60).padStart(2, "0");
-          items.push({ type: "gap", hora: `${gapH}:${gapM}`, dateStr: todayStr });
+          items.push({ type: "gap", hora: `${gapH}:${gapM}`, dateStr: targetDate });
         }
       }
 
       items.push({ type: "appointment", apt });
 
-      // Check gap after this appointment
       const endHora = getEndTime(apt.hora);
       if (i < todayApts.length - 1) {
         const nextHora = todayApts[i + 1].hora.substring(0, 5);
         if (endHora < nextHora) {
-          items.push({ type: "gap", hora: endHora, dateStr: todayStr });
+          items.push({ type: "gap", hora: endHora, dateStr: targetDate });
         }
       } else {
-        // After last appointment, show one gap slot
-        items.push({ type: "gap", hora: endHora, dateStr: todayStr });
+        items.push({ type: "gap", hora: endHora, dateStr: targetDate });
       }
     }
 
@@ -495,7 +542,6 @@ export default function Dashboard() {
             );
           }
 
-          // Gap slot
           return (
             <div
               key={`gap-${idx}-${item.hora}`}
@@ -520,168 +566,106 @@ export default function Dashboard() {
     );
   };
 
-  // Mobile calendar rendering
-  if (isMobile) {
+  // Mobile month view - compact calendar grid
+  const renderMobileMonthView = () => {
     return (
-      <TooltipProvider>
-        <div className="min-h-screen bg-background">
-          {/* Mobile Header */}
-          <header className="border-b border-border px-3 py-2.5">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-base font-bold text-foreground">Dashboard</h1>
-                <p className="text-[11px] text-muted-foreground">
-                  {appointments.length} agendamento{appointments.length !== 1 ? "s" : ""}
-                </p>
-              </div>
-            </div>
-          </header>
-
-          <div className="px-3 pt-2 pb-4">
-            <Tabs defaultValue="fila" className="w-full">
-              <TabsList className="mb-2 w-full h-9">
-                <TabsTrigger value="fila" className="gap-1 flex-1 text-[12px] h-7">
-                  <ListOrdered className="h-3 w-3" />
-                  Fila
-                </TabsTrigger>
-                <TabsTrigger value="calendario" className="gap-1 flex-1 text-[12px] h-7">
-                  <CalendarIcon className="h-3 w-3" />
-                  Agenda
-                </TabsTrigger>
-                <TabsTrigger value="servicos" className="gap-1 flex-1 text-[12px] h-7">
-                  <Settings className="h-3 w-3" />
-                  Serviços
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="fila">
-                <div className="mb-2">
-                  <h2 className="text-[13px] font-semibold text-foreground">
-                    Fila de Atendimentos — {format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}
-                  </h2>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    {appointments.filter(a => a.data === format(new Date(), "yyyy-MM-dd")).length} atendimento(s) hoje
-                  </p>
-                </div>
-                {renderMobileQueueView()}
-              </TabsContent>
-
-              <TabsContent value="calendario">
-                {/* Mobile Day Navigation */}
-                <div className="flex items-center justify-between mb-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => navigate(-1)}
-                    className="h-8 w-8 active:scale-90 transition-transform"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <div className="text-center flex-1 mx-2" onClick={goToday}>
-                    <h2 className="text-[13px] font-semibold text-foreground capitalize">{headerLabel}</h2>
-                    <p className="text-[10px] text-muted-foreground">{format(currentDate, "MMMM yyyy", { locale: ptBR })}</p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => navigate(1)}
-                    className="h-8 w-8 active:scale-90 transition-transform"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                {/* Today button */}
-                {!isSameDay(currentDate, new Date()) && (
-                  <div className="flex justify-center mb-2">
-                    <Button variant="ghost" size="sm" onClick={goToday} className="text-[11px] h-7 px-3">
-                      Ir para hoje
-                    </Button>
-                  </div>
-                )}
-
-                {/* Mobile Day Schedule */}
-                <Card className="overflow-hidden">
-                  <CardContent className="p-0">
-                    <ScrollArea className="h-[calc(100vh-240px)]">
-                      {renderMobileDayView()}
-                    </ScrollArea>
-                  </CardContent>
-                </Card>
-
-                {/* Mobile Recent Appointments */}
-                <div className="mt-3 space-y-2">
-                  <Card>
-                    <CardHeader className="pb-1.5 px-3 pt-3">
-                      <CardTitle className="text-[12px] font-semibold flex items-center gap-1.5">
-                        <CalendarIcon className="h-3.5 w-3.5 text-primary" />
-                        Agendamentos Recentes
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-3 pb-3 space-y-1.5">
-                      {recentScheduled.length === 0 && (
-                        <p className="text-[11px] text-muted-foreground">Nenhum agendamento recente.</p>
-                      )}
-                      {recentScheduled.slice(0, 3).map((apt) => (
-                        <div
-                          key={apt.id}
-                          className="flex items-center gap-2 p-2 rounded-md bg-secondary/50 active:bg-secondary active:scale-[0.98] transition-all"
-                          onClick={() => openAppointment(apt)}
-                        >
-                          <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-                            <User className="h-3 w-3 text-primary" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="text-[12px] font-medium text-foreground truncate">{apt.nome_cliente}</div>
-                            <div className="text-[10px] text-muted-foreground truncate">{apt.servico} · {apt.data} {formatStartTime(apt.hora)}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-1.5 px-3 pt-3">
-                      <CardTitle className="text-[12px] font-semibold flex items-center gap-1.5">
-                        <X className="h-3.5 w-3.5 text-destructive" />
-                        Cancelamentos Recentes
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-3 pb-3 space-y-1.5">
-                      {recentCancelled.length === 0 && (
-                        <p className="text-[11px] text-muted-foreground">Nenhum cancelamento recente.</p>
-                      )}
-                      {recentCancelled.slice(0, 3).map((apt) => (
-                        <div
-                          key={apt.id}
-                          className="flex items-center gap-2 p-2 rounded-md bg-destructive/5 active:bg-destructive/10 active:scale-[0.98] transition-all"
-                        >
-                          <div className="w-7 h-7 rounded-full bg-destructive/15 flex items-center justify-center shrink-0">
-                            <User className="h-3 w-3 text-destructive" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="text-[12px] font-medium text-foreground truncate">{apt.nome_cliente}</div>
-                            <div className="text-[10px] text-muted-foreground truncate">{apt.servico} · {apt.data} {formatStartTime(apt.hora)}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="servicos">
-                <DashboardServicos />
-              </TabsContent>
-            </Tabs>
+      <div>
+        {/* Month nav */}
+        <div className="flex items-center justify-between mb-3">
+          <Button variant="outline" size="icon" onClick={() => navigate(-1)} className="h-8 w-8">
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <div className="text-center" onClick={goToday}>
+            <h2 className="text-sm font-semibold text-foreground capitalize">{headerLabel}</h2>
           </div>
-
-          {/* Shared modals rendered below */}
-          {renderModals()}
+          <Button variant="outline" size="icon" onClick={() => navigate(1)} className="h-8 w-8">
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
-      </TooltipProvider>
+
+        <Card className="overflow-hidden">
+          <CardContent className="p-0">
+            <div className="grid grid-cols-7 border-b border-border">
+              {dayNames.map((d) => (
+                <div key={d} className="text-center text-[10px] font-medium text-muted-foreground py-2">{d}</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7">
+              {monthDays.map((day, i) => {
+                const dateStr = format(day, "yyyy-MM-dd");
+                const dayApts = getAppointmentsForDate(dateStr);
+                const isToday = isSameDay(day, new Date());
+                const isCurrentMonth = isSameMonth(day, currentDate);
+                return (
+                  <div
+                    key={i}
+                    className={`min-h-[52px] border-r border-b border-border last:border-r-0 p-1 cursor-pointer transition-colors active:bg-secondary/50 ${!isCurrentMonth ? "opacity-30" : ""}`}
+                    onClick={() => { setCurrentDate(day); setMobileView("dia"); }}
+                  >
+                    <span className={`text-[11px] font-medium inline-flex items-center justify-center w-5 h-5 rounded-full ${isToday ? "bg-primary text-primary-foreground" : "text-foreground"}`}>
+                      {format(day, "d")}
+                    </span>
+                    {dayApts.length > 0 && (
+                      <div className="flex gap-0.5 mt-0.5 flex-wrap">
+                        {dayApts.slice(0, 3).map((_, di) => (
+                          <div key={di} className="w-1.5 h-1.5 rounded-full bg-primary" />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
-  }
+  };
+
+  // Horizontal date selector bar for mobile day view
+  const renderDateBar = () => {
+    return (
+      <div className="flex items-center gap-0.5 mb-2 overflow-x-auto pb-1 -mx-1 px-1">
+        {datebar.map((day, i) => {
+          const isToday = isSameDay(day, new Date());
+          const isSelected = isSameDay(day, currentDate);
+          const dayApts = getAppointmentsForDate(format(day, "yyyy-MM-dd"));
+          return (
+            <button
+              key={i}
+              onClick={() => setCurrentDate(day)}
+              className={`flex flex-col items-center justify-center min-w-[40px] flex-1 py-1.5 rounded-lg transition-all ${
+                isSelected
+                  ? "bg-primary text-primary-foreground shadow-md"
+                  : isToday
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-secondary"
+              }`}
+            >
+              <span className="text-[9px] font-medium uppercase">{dayNames[i]}</span>
+              <span className="text-sm font-bold">{format(day, "d")}</span>
+              {dayApts.length > 0 && !isSelected && (
+                <div className="w-1 h-1 rounded-full bg-primary mt-0.5" />
+              )}
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // FAB
+  const renderFAB = () => {
+    const todayStr = format(new Date(), "yyyy-MM-dd");
+    return (
+      <button
+        onClick={() => openBookingModal(todayStr, "08:00")}
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
+      >
+        <Plus className="h-6 w-6" />
+      </button>
+    );
+  };
 
   // Shared modals function
   function renderModals() {
@@ -856,7 +840,203 @@ export default function Dashboard() {
     );
   }
 
-  // Desktop layout
+  // =================== MOBILE LAYOUT ===================
+  if (isMobile) {
+    return (
+      <TooltipProvider>
+        <div className="min-h-screen bg-background">
+          {/* Mobile Header */}
+          <header className="border-b border-border px-3 py-2.5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-base font-bold text-foreground">Dashboard</h1>
+                <p className="text-[11px] text-muted-foreground">
+                  {appointments.length} agendamento{appointments.length !== 1 ? "s" : ""}
+                </p>
+              </div>
+            </div>
+          </header>
+
+          <div className="px-3 pt-2 pb-20">
+            <Tabs value={mobileView} onValueChange={(v) => setMobileView(v as MobileView)} className="w-full">
+              <TabsList className="mb-2 w-full h-9">
+                <TabsTrigger value="fila" className="gap-1 flex-1 text-[12px] h-7">
+                  <ListOrdered className="h-3 w-3" />
+                  Fila
+                </TabsTrigger>
+                <TabsTrigger value="dia" className="gap-1 flex-1 text-[12px] h-7">
+                  <CalendarIcon className="h-3 w-3" />
+                  Dia
+                </TabsTrigger>
+                <TabsTrigger value="mes" className="gap-1 flex-1 text-[12px] h-7">
+                  <CalendarIcon className="h-3 w-3" />
+                  Mês
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Additional tabs for Serviços on mobile */}
+              <div className="flex justify-end mb-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-[11px] h-7 gap-1"
+                  onClick={() => setMobileView("fila" as any)}
+                >
+                  {/* Hidden: handled by separate navigation if needed */}
+                </Button>
+              </div>
+
+              <TabsContent value="fila">
+                <div className="mb-2">
+                  <h2 className="text-[13px] font-semibold text-foreground">
+                    Fila de Atendimentos — {format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}
+                  </h2>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {appointments.filter(a => a.data === format(new Date(), "yyyy-MM-dd")).length} atendimento(s) hoje
+                  </p>
+                </div>
+                {renderQueueView()}
+              </TabsContent>
+
+              <TabsContent value="dia">
+                {/* Date bar */}
+                {renderDateBar()}
+
+                {/* Day Navigation */}
+                <div className="flex items-center justify-between mb-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => navigate(-1)}
+                    className="h-8 w-8 active:scale-90 transition-transform"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="text-center flex-1 mx-2" onClick={goToday}>
+                    <h2 className="text-[13px] font-semibold text-foreground capitalize">{headerLabel}</h2>
+                    <p className="text-[10px] text-muted-foreground">{format(currentDate, "MMMM yyyy", { locale: ptBR })}</p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => navigate(1)}
+                    className="h-8 w-8 active:scale-90 transition-transform"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {!isSameDay(currentDate, new Date()) && (
+                  <div className="flex justify-center mb-2">
+                    <Button variant="ghost" size="sm" onClick={goToday} className="text-[11px] h-7 px-3">
+                      Ir para hoje
+                    </Button>
+                  </div>
+                )}
+
+                <Card className="overflow-hidden">
+                  <CardContent className="p-0">
+                    <ScrollArea className="h-[calc(100vh-300px)]">
+                      {renderMobileDayView()}
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="mes">
+                {renderMobileMonthView()}
+
+                {/* Recent Appointments below month view */}
+                <div className="mt-3 space-y-2">
+                  <Card>
+                    <CardHeader className="pb-1.5 px-3 pt-3">
+                      <CardTitle className="text-[12px] font-semibold flex items-center gap-1.5">
+                        <CalendarIcon className="h-3.5 w-3.5 text-primary" />
+                        Agendamentos Recentes
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-3 pb-3 space-y-1.5">
+                      {recentScheduled.length === 0 && (
+                        <p className="text-[11px] text-muted-foreground">Nenhum agendamento recente.</p>
+                      )}
+                      {recentScheduled.slice(0, 3).map((apt) => (
+                        <div
+                          key={apt.id}
+                          className="flex items-center gap-2 p-2 rounded-md bg-secondary/50 active:bg-secondary active:scale-[0.98] transition-all"
+                          onClick={() => openAppointment(apt)}
+                        >
+                          <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                            <User className="h-3 w-3 text-primary" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[12px] font-medium text-foreground truncate">{apt.nome_cliente}</div>
+                            <div className="text-[10px] text-muted-foreground truncate">{apt.servico} · {apt.data} {formatStartTime(apt.hora)}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-1.5 px-3 pt-3">
+                      <CardTitle className="text-[12px] font-semibold flex items-center gap-1.5">
+                        <X className="h-3.5 w-3.5 text-destructive" />
+                        Cancelamentos Recentes
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-3 pb-3 space-y-1.5">
+                      {recentCancelled.length === 0 && (
+                        <p className="text-[11px] text-muted-foreground">Nenhum cancelamento recente.</p>
+                      )}
+                      {recentCancelled.slice(0, 3).map((apt) => (
+                        <div
+                          key={apt.id}
+                          className="flex items-center gap-2 p-2 rounded-md bg-destructive/5 active:bg-destructive/10 active:scale-[0.98] transition-all"
+                        >
+                          <div className="w-7 h-7 rounded-full bg-destructive/15 flex items-center justify-center shrink-0">
+                            <User className="h-3 w-3 text-destructive" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[12px] font-medium text-foreground truncate">{apt.nome_cliente}</div>
+                            <div className="text-[10px] text-muted-foreground truncate">{apt.servico} · {apt.data} {formatStartTime(apt.hora)}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+            </Tabs>
+
+            {/* Serviços link */}
+            <div className="mt-4">
+              <Button
+                variant="outline"
+                className="w-full h-10 gap-2 text-[12px]"
+                onClick={() => {
+                  // Navigate to a temporary servicos overlay
+                  const el = document.getElementById("mobile-servicos-section");
+                  if (el) el.scrollIntoView({ behavior: "smooth" });
+                }}
+              >
+                <Settings className="h-3.5 w-3.5" />
+                Gerenciar Serviços
+              </Button>
+            </div>
+
+            <div id="mobile-servicos-section" className="mt-4">
+              <DashboardServicos />
+            </div>
+          </div>
+
+          {renderFAB()}
+          {renderModals()}
+        </div>
+      </TooltipProvider>
+    );
+  }
+
+  // =================== DESKTOP LAYOUT ===================
   return (
     <TooltipProvider>
     <div className="min-h-screen bg-background">
@@ -878,6 +1058,10 @@ export default function Dashboard() {
             <TabsTrigger value="calendario" className="gap-2">
               <CalendarIcon className="h-4 w-4" />
               Calendário
+            </TabsTrigger>
+            <TabsTrigger value="fila" className="gap-2">
+              <ListOrdered className="h-4 w-4" />
+              Fila
             </TabsTrigger>
             <TabsTrigger value="servicos" className="gap-2">
               <Settings className="h-4 w-4" />
@@ -1015,6 +1199,21 @@ export default function Dashboard() {
 
         {/* Sidebar */}
         <div className="w-full lg:w-80 shrink-0 space-y-4">
+          {/* Queue side panel on desktop */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <ListOrdered className="h-4 w-4 text-primary" />
+                Fila de Hoje
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="max-h-[300px]">
+                {renderQueueView()}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -1080,12 +1279,27 @@ export default function Dashboard() {
       </div>
           </TabsContent>
 
+          <TabsContent value="fila">
+            <div className="max-w-2xl">
+              <div className="mb-4">
+                <h2 className="text-lg font-semibold text-foreground">
+                  Fila de Atendimentos — {format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {appointments.filter(a => a.data === format(new Date(), "yyyy-MM-dd")).length} atendimento(s) confirmado(s) hoje
+                </p>
+              </div>
+              {renderQueueView()}
+            </div>
+          </TabsContent>
+
           <TabsContent value="servicos">
             <DashboardServicos />
           </TabsContent>
         </Tabs>
       </div>
 
+      {renderFAB()}
       {renderModals()}
     </div>
     </TooltipProvider>
