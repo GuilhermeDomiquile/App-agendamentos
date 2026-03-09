@@ -419,20 +419,43 @@ export default function Dashboard() {
     );
   };
 
+  // Get valid slots for a specific date (within operating hours, excluding blocks)
+  const getValidSlotsForDate = useCallback((dateStr: string): string[] => {
+    const allSlots = generateSlotsInRange(configAgenda.hora_inicio, configAgenda.hora_fim);
+    return allSlots.filter(slot => !isSlotBlocked(slot, dateStr, bloqueios));
+  }, [configAgenda, bloqueios]);
+
+  // Get hours to render in the grid (only hours within operating range)
+  const getOperatingHours = useCallback((): number[] => {
+    const [sh] = configAgenda.hora_inicio.split(":").map(Number);
+    const [eh] = configAgenda.hora_fim.split(":").map(Number);
+    const hours: number[] = [];
+    for (let h = sh; h <= eh; h++) hours.push(h);
+    return hours;
+  }, [configAgenda]);
+
+  const getSlotOffset = useCallback((hora: string): number => {
+    const [sh] = configAgenda.hora_inicio.split(":").map(Number);
+    const [h, m] = hora.split(":").map(Number);
+    return ((h - sh) * 2 + m / 30) * SLOT_HEIGHT;
+  }, [configAgenda]);
+
   // For day/week views: render slots (desktop)
   const renderDayColumn = (dateStr: string, isFullWidth: boolean) => {
     const bookedSlots = getBookedSlotsForDate(dateStr);
     const dayApts = getAppointmentsForDate(dateStr);
+    const validSlots = getValidSlotsForDate(dateStr);
+    const operatingHours = getOperatingHours();
 
     return (
       <div className="relative">
-        {HOURS.map((hour) => (
+        {operatingHours.map((hour) => (
           <div key={hour} className="h-[96px] border-b border-border">
             <div className="h-[48px] border-b border-border/30" />
           </div>
         ))}
         {dayApts.map((apt) => {
-          const top = getSlotOffset(apt.hora, 0);
+          const top = getSlotOffset(apt.hora);
           return (
             <div
               key={apt.id}
@@ -443,9 +466,9 @@ export default function Dashboard() {
             </div>
           );
         })}
-        {ALL_SLOTS.map((slot) => {
+        {validSlots.map((slot) => {
           if (bookedSlots.has(slot)) return null;
-          const top = getSlotOffset(slot, 0);
+          const top = getSlotOffset(slot);
           return (
             <div
               key={`avail-${slot}`}
