@@ -1055,6 +1055,10 @@ export default function Dashboard() {
               <Settings className="h-4 w-4" />
               Serviços
             </TabsTrigger>
+            <TabsTrigger value="bloqueios" className="gap-2">
+              <Ban className="h-4 w-4" />
+              Bloqueios
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="agenda">
