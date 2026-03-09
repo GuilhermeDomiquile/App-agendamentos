@@ -41,7 +41,6 @@ interface ServicoOption {
 type ViewMode = "month" | "week" | "day";
 type MobileView = "fila" | "agenda" | "servicos" | "bloqueios";
 
-const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const SLOT_HEIGHT = 48;
 
 function getEndTime(hora: string): string {
@@ -51,31 +50,63 @@ function getEndTime(hora: string): string {
   return format(end, "HH:mm");
 }
 
-function getSlotOffset(hora: string, hourStart: number): number {
-  const [h, m] = hora.split(":").map(Number);
-  return ((h - hourStart) * 2 + m / 30) * SLOT_HEIGHT;
-}
-
-function generateAllSlots(): string[] {
+function generateSlotsInRange(startTime: string, endTime: string): string[] {
+  const [sh, sm] = startTime.split(":").map(Number);
+  const [eh, em] = endTime.split(":").map(Number);
+  const startMin = sh * 60 + sm;
+  const endMin = eh * 60 + em;
   const slots: string[] = [];
-  for (let h = 6; h < 18; h++) {
-    slots.push(`${String(h).padStart(2, "0")}:00`);
-    slots.push(`${String(h).padStart(2, "0")}:30`);
+  // Last bookable slot is 30min before closing
+  for (let m = startMin; m < endMin; m += 30) {
+    const h = Math.floor(m / 60);
+    const min = m % 60;
+    slots.push(`${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`);
   }
   return slots;
 }
 
-function generateMobileSlots(): string[] {
-  const slots: string[] = [];
-  for (let h = 0; h < 24; h++) {
-    slots.push(`${String(h).padStart(2, "0")}:00`);
-    slots.push(`${String(h).padStart(2, "0")}:30`);
+function isSlotBlocked(slot: string, dateStr: string, bloqueios: BloqueioAgenda[]): boolean {
+  const slotMin = timeToMinutes(slot);
+  const dayOfWeek = new Date(dateStr + "T12:00:00").getDay();
+
+  for (const b of bloqueios) {
+    if (!b.ativo) continue;
+    // Check if bloqueio applies to this date
+    if (b.tipo === "recorrente" && b.dia_semana !== dayOfWeek) continue;
+    if (b.tipo === "data" && b.data !== dateStr) continue;
+
+    // Full day block
+    if (!b.hora_inicio && !b.hora_fim) return true;
+
+    if (b.hora_inicio && b.hora_fim) {
+      const bStart = timeToMinutes(b.hora_inicio);
+      const bEnd = timeToMinutes(b.hora_fim);
+      if (slotMin >= bStart && slotMin < bEnd) return true;
+    }
   }
-  return slots;
+  return false;
 }
 
-const ALL_SLOTS = generateAllSlots();
-const MOBILE_SLOTS = generateMobileSlots();
+function timeToMinutes(t: string): number {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+}
+
+interface BloqueioAgenda {
+  id: string;
+  tipo: string;
+  dia_semana: number | null;
+  data: string | null;
+  hora_inicio: string | null;
+  hora_fim: string | null;
+  motivo: string | null;
+  ativo: boolean;
+}
+
+interface ConfigAgenda {
+  hora_inicio: string;
+  hora_fim: string;
+}
 
 export default function Dashboard() {
   const isMobile = useIsMobile();
@@ -87,6 +118,8 @@ export default function Dashboard() {
   const [mobileView, setMobileView] = useState<MobileView>("fila");
   const [agendaSubView, setAgendaSubView] = useState<"dia" | "mes">("dia");
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [bloqueios, setBloqueios] = useState<BloqueioAgenda[]>([]);
+  const [configAgenda, setConfigAgenda] = useState<ConfigAgenda>({ hora_inicio: "06:00", hora_fim: "18:00" });
   const [modalOpen, setModalOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ type: "cancelado" | "finalizado"; id: string } | null>(null);
   const [showDesktopQueue, setShowDesktopQueue] = useState(true);
@@ -171,10 +204,33 @@ export default function Dashboard() {
     if (data) setServicos(data);
   };
 
+  const fetchConfigAgenda = async () => {
+    const { data } = await supabase
+      .from("configuracao_agenda")
+      .select("hora_inicio, hora_fim")
+      .limit(1)
+      .single();
+    if (data) {
+      setConfigAgenda({
+        hora_inicio: (data.hora_inicio as string)?.substring(0, 5) || "06:00",
+        hora_fim: (data.hora_fim as string)?.substring(0, 5) || "18:00",
+      });
+    }
+  };
+
+  const fetchBloqueios = async () => {
+    const { data } = await supabase
+      .from("bloqueios_agenda")
+      .select("*");
+    if (data) setBloqueios(data as BloqueioAgenda[]);
+  };
+
   useEffect(() => {
     fetchAppointments();
     fetchRecent();
     fetchServicos();
+    fetchConfigAgenda();
+    fetchBloqueios();
     const channel = supabase
       .channel("agendamentos-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "agendamentos" }, () => {
@@ -182,7 +238,13 @@ export default function Dashboard() {
         fetchRecent();
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    const bloqueiosChannel = supabase
+      .channel("bloqueios-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "bloqueios_agenda" }, () => {
+        fetchBloqueios();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); supabase.removeChannel(bloqueiosChannel); };
   }, []);
 
   const handleConfirmAction = async () => {
@@ -357,20 +419,43 @@ export default function Dashboard() {
     );
   };
 
+  // Get valid slots for a specific date (within operating hours, excluding blocks)
+  const getValidSlotsForDate = useCallback((dateStr: string): string[] => {
+    const allSlots = generateSlotsInRange(configAgenda.hora_inicio, configAgenda.hora_fim);
+    return allSlots.filter(slot => !isSlotBlocked(slot, dateStr, bloqueios));
+  }, [configAgenda, bloqueios]);
+
+  // Get hours to render in the grid (only hours within operating range)
+  const getOperatingHours = useCallback((): number[] => {
+    const [sh] = configAgenda.hora_inicio.split(":").map(Number);
+    const [eh] = configAgenda.hora_fim.split(":").map(Number);
+    const hours: number[] = [];
+    for (let h = sh; h <= eh; h++) hours.push(h);
+    return hours;
+  }, [configAgenda]);
+
+  const getSlotOffset = useCallback((hora: string): number => {
+    const [sh] = configAgenda.hora_inicio.split(":").map(Number);
+    const [h, m] = hora.split(":").map(Number);
+    return ((h - sh) * 2 + m / 30) * SLOT_HEIGHT;
+  }, [configAgenda]);
+
   // For day/week views: render slots (desktop)
   const renderDayColumn = (dateStr: string, isFullWidth: boolean) => {
     const bookedSlots = getBookedSlotsForDate(dateStr);
     const dayApts = getAppointmentsForDate(dateStr);
+    const validSlots = getValidSlotsForDate(dateStr);
+    const operatingHours = getOperatingHours();
 
     return (
       <div className="relative">
-        {HOURS.map((hour) => (
+        {operatingHours.map((hour) => (
           <div key={hour} className="h-[96px] border-b border-border">
             <div className="h-[48px] border-b border-border/30" />
           </div>
         ))}
         {dayApts.map((apt) => {
-          const top = getSlotOffset(apt.hora, 0);
+          const top = getSlotOffset(apt.hora);
           return (
             <div
               key={apt.id}
@@ -381,9 +466,9 @@ export default function Dashboard() {
             </div>
           );
         })}
-        {ALL_SLOTS.map((slot) => {
+        {validSlots.map((slot) => {
           if (bookedSlots.has(slot)) return null;
-          const top = getSlotOffset(slot, 0);
+          const top = getSlotOffset(slot);
           return (
             <div
               key={`avail-${slot}`}
@@ -413,7 +498,7 @@ export default function Dashboard() {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        {MOBILE_SLOTS.map((slot) => {
+        {getValidSlotsForDate(dateStr).map((slot) => {
           const apt = aptMap.get(slot) || aptMap.get(`${slot}:00`);
 
           if (apt) {
@@ -1152,7 +1237,7 @@ export default function Dashboard() {
                   <ScrollArea className="h-[600px]">
                     <div className="grid grid-cols-[60px_repeat(7,1fr)]">
                       <div>
-                        {HOURS.map((hour) => (
+                        {getOperatingHours().map((hour) => (
                           <div key={hour} className="h-[96px] text-[10px] text-muted-foreground text-right pr-2 pt-1 border-r border-border border-b">
                             {String(hour).padStart(2, "0")}:00
                           </div>
@@ -1175,7 +1260,7 @@ export default function Dashboard() {
                 <ScrollArea className="h-[600px]">
                   <div className="grid grid-cols-[60px_1fr]">
                     <div>
-                      {HOURS.map((hour) => (
+                      {getOperatingHours().map((hour) => (
                         <div key={hour} className="h-[96px] text-xs text-muted-foreground text-right pr-3 pt-1 border-r border-border border-b">
                           {String(hour).padStart(2, "0")}:00
                         </div>
