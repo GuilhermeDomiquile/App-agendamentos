@@ -772,7 +772,7 @@ export default function Dashboard() {
     const todayStr = format(new Date(), "yyyy-MM-dd");
     return (
       <button
-        onClick={() => openBookingModal(todayStr, "08:00")}
+        onClick={() => openBookingModal(todayStr)}
         className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
       >
         <Plus className="h-6 w-6" />
