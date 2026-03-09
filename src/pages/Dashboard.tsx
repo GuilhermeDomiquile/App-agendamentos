@@ -39,7 +39,7 @@ interface ServicoOption {
 }
 
 type ViewMode = "month" | "week" | "day";
-type MobileView = "fila" | "agenda" | "servicos";
+type MobileView = "fila" | "agenda" | "servicos" | "bloqueios";
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const SLOT_HEIGHT = 48;
