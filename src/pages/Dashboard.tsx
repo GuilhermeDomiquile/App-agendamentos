@@ -264,10 +264,34 @@ export default function Dashboard() {
     setModalOpen(true);
   };
 
-  const openBookingModal = (dateStr: string, hora: string) => {
-    setBookingSlot({ date: dateStr, hora });
+  const fetchAvailableSlots = async (dateStr: string) => {
+    setBookingLoadingSlots(true);
+    const { data, error } = await supabase.rpc('horarios_disponiveis_por_data', {
+      data_consulta: dateStr,
+    });
+    if (!error && data && Array.isArray(data)) {
+      setBookingAvailableSlots(
+        data.map((row: any) => {
+          const h = row.horario as string;
+          return h.length > 5 ? h.substring(0, 5) : h;
+        })
+      );
+    } else {
+      setBookingAvailableSlots([]);
+    }
+    setBookingLoadingSlots(false);
+  };
+
+  const openBookingModal = (dateStr: string, hora?: string) => {
+    setBookingSlot({ date: dateStr, hora: hora || "" });
     setBookingForm({ nome_cliente: "", telefone: "", servico: "", observacoes: "" });
     setBookingModalOpen(true);
+    fetchAvailableSlots(dateStr);
+  };
+
+  const handleBookingDateChange = (newDate: string) => {
+    setBookingSlot(prev => prev ? { ...prev, date: newDate, hora: "" } : { date: newDate, hora: "" });
+    fetchAvailableSlots(newDate);
   };
 
   const handleBookingSubmit = async () => {
