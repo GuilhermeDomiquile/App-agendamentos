@@ -1,0 +1,243 @@
+{
+  "name": "Eventos do App",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "appagendamentos",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        16,
+        0
+      ],
+      "id": "c826069b-78f0-4b1a-a6bd-c2e8504e8110",
+      "name": "Webhook",
+      "webhookId": "3f316bb1-c623-4ae1-b171-c4dda487e713"
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "guilhermedomiquile@gmail.com",
+          "mode": "list",
+          "cachedResultName": "guilhermedomiquile@gmail.com"
+        },
+        "start": "={{ $json.start_datetime }}",
+        "end": "={{ $json.end_datetime }}",
+        "additionalFields": {
+          "description": "=ID do agendamento: {{ $json.agendamento_id }}",
+          "summary": "={{ $json.servico }} de {{ $json.nome_cliente }} - Telefone: wa.me/{{ $json.telefone }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        400,
+        0
+      ],
+      "id": "eb185e02-72fd-4f44-9b92-6838a86b9488",
+      "name": "Create an event",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "XegAekwolV3ZOwQK",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===== CONFIGURAÇÃO =====\nconst DURACAO_MINUTOS = 30; // duração do serviço\nconst TIMEZONE_OFFSET = \"-03:00\"; // Brasil (ajuste se precisar)\n\n// ===== DADOS DE ENTRADA =====\nconst data = $json.body.data;   // YYYY-MM-DD\nconst hora = $json.body.hora;   // HH:mm\n\nif (!data || !hora) {\n  throw new Error(\"Data ou hora não informadas\");\n}\n\n// ===== CRIA DATETIME INÍCIO =====\nconst inicioISO = `${data}T${hora}:00${TIMEZONE_OFFSET}`;\n\n// ===== CALCULA FIM =====\nconst inicioDate = new Date(`${data}T${hora}:00`);\ninicioDate.setMinutes(inicioDate.getMinutes() + DURACAO_MINUTOS);\n\n// formata fim\nconst fimHora = inicioDate.toISOString().substring(11, 19);\nconst fimISO = `${data}T${fimHora}${TIMEZONE_OFFSET}`;\n\n// ===== RETORNO =====\nreturn [\n  {\n    json: {\n      ...$json.body,\n      start_datetime: inicioISO,\n      end_datetime: fimISO\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "d0cfda58-606f-4963-9d00-26919bd4a369",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "agendamentos",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Code in JavaScript').item.json.agendamento_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "id_calendar",
+              "fieldValue": "={{ $json.id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        592,
+        0
+      ],
+      "id": "af752b0f-fdc3-48b6-94c6-121bf3bc3a62",
+      "name": "Update agendamentos",
+      "credentials": {
+        "supabaseApi": {
+          "id": "pHsh6R2c7zvNlfSW",
+          "name": "Supabase testes"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "notifica_agendamento",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Code in JavaScript').item.json.agendamento_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "id_calendar",
+              "fieldValue": "={{ $('Create an event').item.json.id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        784,
+        0
+      ],
+      "id": "29900ff7-275f-4a74-97ee-aaa1c9b1cc6a",
+      "name": "Update Notifica",
+      "credentials": {
+        "supabaseApi": {
+          "id": "pHsh6R2c7zvNlfSW",
+          "name": "Supabase testes"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "n8n.automatizai.site",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+            "content-length": "138",
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "accept-language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+            "content-type": "application/json",
+            "origin": "https://518491c8-fcdf-4699-aa46-6b32bf3f5e9d.lovableproject.com",
+            "priority": "u=1, i",
+            "referer": "https://518491c8-fcdf-4699-aa46-6b32bf3f5e9d.lovableproject.com/",
+            "sec-ch-ua": "\"Not:A-Brand\";v=\"99\", \"Google Chrome\";v=\"145\", \"Chromium\";v=\"145\"",
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": "\"Windows\"",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "cross-site",
+            "x-forwarded-for": "179.222.191.65",
+            "x-forwarded-host": "n8n.automatizai.site",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "aaf912d5ac12",
+            "x-real-ip": "179.222.191.65"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "agendamento_id": 79,
+            "telefone": "11982026040",
+            "nome_cliente": "Guilherme Domiquile",
+            "servico": "Pezinho",
+            "data": "2026-02-28",
+            "hora": "06:00"
+          },
+          "webhookUrl": "https://n8n.automatizai.site/webhook/appagendamentos",
+          "executionMode": "production"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Create an event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create an event": {
+      "main": [
+        [
+          {
+            "node": "Update agendamentos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update agendamentos": {
+      "main": [
+        [
+          {
+            "node": "Update Notifica",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "80e1496d-3388-4517-a43c-0740e4964cad",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d0d48c1bfffdabdb45a95141cce76732b0f063d8a6275c3debc3a803e1109e3d"
+  },
+  "id": "0RuO-mU7J-lqoKvgGuy_k",
+  "tags": []
+}

@@ -1,0 +1,454 @@
+{
+  "name": "FecharTickets master",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -224,
+        0
+      ],
+      "id": "264c7218-8afb-4de5-8acb-71822dd9350f",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "dados_clientes",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "em_atendimento",
+              "condition": "eq",
+              "keyValue": "true"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -64,
+        0
+      ],
+      "id": "e487d1fb-1255-48f4-86b5-7cdd151f97ee",
+      "name": "Get many rows",
+      "credentials": {
+        "supabaseApi": {
+          "id": "pHsh6R2c7zvNlfSW",
+          "name": "Supabase testes"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "propertyName": "Ativo",
+        "key": "={{ $json.telefone }}_ativo",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        96,
+        0
+      ],
+      "id": "29092d37-f059-4eed-8f3b-917abe8fab76",
+      "name": "Redis",
+      "credentials": {
+        "redis": {
+          "id": "8KP7l4hsqonybJQo",
+          "name": "testes"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "3851fd8b-b629-4ae0-a881-b77bbb575b3f",
+              "leftValue": "={{ $json.Ativo }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        256,
+        0
+      ],
+      "id": "9a20fca9-2460-4622-a43a-f4600b3bc510",
+      "name": "If"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        464,
+        -96
+      ],
+      "id": "9c6a1a1e-e4ec-4061-b3d9-fb4d0d2408bb",
+      "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {
+        "content": "## Conclui Tickets Inativos",
+        "height": 528,
+        "width": 1808,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -304,
+        -144
+      ],
+      "typeVersion": 1,
+      "id": "403ad625-f395-4005-a19e-88addf601a15",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "6ce4ae48-e0c8-475a-aad6-ad95c57fbfba",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        896,
+        112
+      ],
+      "id": "6faa0971-4c22-4346-8f41-0f92233b8a9d",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "dados_clientes",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telefone",
+              "condition": "eq",
+              "keyValue": "={{ $('Get many rows').item.json.telefone }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "em_atendimento",
+              "fieldValue": "false"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        464,
+        112
+      ],
+      "id": "bd6e9859-c279-4855-9522-a19659e29d6e",
+      "name": "Fechar ticket",
+      "credentials": {
+        "supabaseApi": {
+          "id": "pHsh6R2c7zvNlfSW",
+          "name": "Supabase testes"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "agendamentos",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telefone",
+              "condition": "eq",
+              "keyValue": "={{ $json.telefone }}"
+            },
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "coletando"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        688,
+        112
+      ],
+      "id": "f3ae055a-d7a1-4abe-893a-2553ac219797",
+      "name": "agendamento aberto",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "pHsh6R2c7zvNlfSW",
+          "name": "Supabase testes"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1104,
+        208
+      ],
+      "id": "6487f7c8-6687-4a2c-a8ae-e52dba8d1e8d",
+      "name": "No Operation, do nothing1"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "tableId": "agendamentos",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('agendamento aberto').item.json.id}}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1104,
+        16
+      ],
+      "id": "4eb24e7a-180d-4995-a516-3b3476c74645",
+      "name": "Deleta agendamentos",
+      "credentials": {
+        "supabaseApi": {
+          "id": "pHsh6R2c7zvNlfSW",
+          "name": "Supabase testes"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "tableId": "notifica_agendamento",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('agendamento aberto').item.json.id}}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1296,
+        16
+      ],
+      "id": "f653cc3a-578f-422f-850f-c96ceb29d678",
+      "name": "Deleta notifica",
+      "credentials": {
+        "supabaseApi": {
+          "id": "pHsh6R2c7zvNlfSW",
+          "name": "Supabase testes"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Schedule Trigger": [
+      {
+        "json": {
+          "timestamp": "2026-02-18T21:49:40.002-03:00",
+          "Readable date": "February 18th 2026, 9:49:40 pm",
+          "Readable time": "9:49:40 pm",
+          "Day of week": "Wednesday",
+          "Year": "2026",
+          "Month": "February",
+          "Day of month": "18",
+          "Hour": "21",
+          "Minute": "49",
+          "Second": "40",
+          "Timezone": "America/Sao_Paulo (UTC-03:00)"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get many rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many rows": {
+      "main": [
+        [
+          {
+            "node": "Redis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fechar ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fechar ticket": {
+      "main": [
+        [
+          {
+            "node": "agendamento aberto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "agendamento aberto": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Deleta agendamentos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deleta agendamentos": {
+      "main": [
+        [
+          {
+            "node": "Deleta notifica",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "7d49aa14-3804-4fc9-a024-e9ee9cd64b65",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d0d48c1bfffdabdb45a95141cce76732b0f063d8a6275c3debc3a803e1109e3d"
+  },
+  "id": "uFMgnzj2rZZyjvS3",
+  "tags": []
+}

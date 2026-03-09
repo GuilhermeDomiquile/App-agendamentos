@@ -1,0 +1,779 @@
+{
+  "name": "Lembrete de agendamento master",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        672,
+        -64
+      ],
+      "id": "b8cf899a-46ff-4401-9e43-df9a1f57b5cc",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "notifica_agendamento",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "encerrado",
+              "condition": "eq",
+              "keyValue": "false"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        896,
+        -64
+      ],
+      "id": "0e4709f5-d475-4934-a6fc-15cf8c5940c3",
+      "name": "Get many rows",
+      "credentials": {
+        "supabaseApi": {
+          "id": "pHsh6R2c7zvNlfSW",
+          "name": "Supabase testes"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2d9e00bd-3154-4fa8-853a-eb40d9301927",
+              "name": "nome_cliente",
+              "value": "={{ $json.nome_cliente }}",
+              "type": "string"
+            },
+            {
+              "id": "6854c323-bc4b-4dd5-86c0-f467df82208f",
+              "name": "telefone_cliente",
+              "value": "={{ $json.telefone_cliente }}",
+              "type": "string"
+            },
+            {
+              "id": "dc2d316e-741e-4f62-9bae-4728e765367b",
+              "name": "data_formatada",
+              "value": "={{ $json.data_agendamento.toDateTime().setZone('America/Sao_Paulo').toFormat('dd/MM/yyyy HH:mm') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1456,
+        -224
+      ],
+      "id": "22338c63-4155-43bc-99a9-94c0e056c6fc",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Esta é a data fornecida: {{ $json.data_formatada }}"
+            },
+            {
+              "role": "system",
+              "content": "=Você está recebendo informações para enviar um lembrete de agendamento para o cliente\n\nSua tarefa é enviar uma mensagem com a data no formato \"DD/MM às HH:mmh\"\".\n\nSeu output será:\n\nOlá, {{ $json.nome_cliente }}, tudo bem?\n\nPassando para lembrar que você tem um horário agendado na Barbearia Cortonezi para amanhã dia DD/MM às HH:mmh. 💈✂️\n\nSe precisar reagendar, nos avise com antecedência por favor! 💬\n\n#NOTES\nNão retorne nada além da mensagem de lembrete\n"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        -224
+      ],
+      "id": "150f3472-dc95-42ae-b6b0-7dd45d28fe7e",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "mLLprCDLDRAIqXU7",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "messages-api",
+        "instanceName": "testesAiAgent",
+        "remoteJid": "={{ $('1 dia').item.json.telefone_cliente }}",
+        "messageText": "={{ $json.output[0].content[0].text }}",
+        "options_message": {}
+      },
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        2096,
+        -224
+      ],
+      "id": "054f3012-d3b8-481f-bd6e-ffc8216aeb93",
+      "name": "Enviar texto",
+      "credentials": {
+        "evolutionApi": {
+          "id": "MfTU7tgbipJoephr",
+          "name": "Teste"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "notifica_agendamento",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telefone_cliente",
+              "condition": "eq",
+              "keyValue": "={{ $('1 dia').item.json.telefone_cliente }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "notifica1",
+              "fieldValue": "true"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2272,
+        -224
+      ],
+      "id": "348bcd89-9788-44de-a2f1-3eed63d08a11",
+      "name": "Update a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "pHsh6R2c7zvNlfSW",
+          "name": "Supabase testes"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2d9e00bd-3154-4fa8-853a-eb40d9301927",
+              "name": "nome_cliente",
+              "value": "={{ $json.nome_cliente }}",
+              "type": "string"
+            },
+            {
+              "id": "6854c323-bc4b-4dd5-86c0-f467df82208f",
+              "name": "telefone_cliente",
+              "value": "={{ $json.telefone_cliente }}",
+              "type": "string"
+            },
+            {
+              "id": "dc2d316e-741e-4f62-9bae-4728e765367b",
+              "name": "data_formatada",
+              "value": "={{ $json.data_agendamento.toDateTime().setZone('America/Sao_Paulo').toFormat('dd/MM/yyyy HH:mm') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1472,
+        128
+      ],
+      "id": "67a8a831-ba06-42ba-9579-5674d288d312",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Esta é a data fornecida: {{ $json.data_formatada }}"
+            },
+            {
+              "role": "system",
+              "content": "=Você está recebendo informações para enviar um lembrete de agendamento para o cliente\n\nSua tarefa é enviar uma mensagem com a data do agendamento.\n\nSeu output **Sempre** será:\n\nOlá, aqui é da Barbearia Testes, tudo bem?\n\nPassando para lembrar que você tem um horário agendado na Barbearia Cortonezi daqui 1 hora!\nData: {{ $json.data_formatada }}\n\nTe esperamos lá! 💈✂️\n\n#NOTES\nNão retorne nada além da mensagem de lembrete\n"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        128
+      ],
+      "id": "6196bad3-55c2-4a5e-801c-9211d8f634b5",
+      "name": "Message a model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "mLLprCDLDRAIqXU7",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "messages-api",
+        "instanceName": "TestesBarbearia",
+        "remoteJid": "={{ $('1 hora').item.json.telefone_cliente }}",
+        "messageText": "={{ $json.output[0].content[0].text }}",
+        "options_message": {}
+      },
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        2096,
+        128
+      ],
+      "id": "bfafd0b5-d98c-4ed0-b0f7-5a37909e616c",
+      "name": "Enviar texto1",
+      "credentials": {
+        "evolutionApi": {
+          "id": "MfTU7tgbipJoephr",
+          "name": "Teste"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "notifica_agendamento",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telefone_cliente",
+              "condition": "eq",
+              "keyValue": "={{ $('1 hora').item.json.telefone_cliente }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "notifica2",
+              "fieldValue": "true"
+            },
+            {
+              "fieldId": "encerrado",
+              "fieldValue": "true"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2272,
+        128
+      ],
+      "id": "74cdf8f2-13f7-4eb4-9ae5-a9715e342b6d",
+      "name": "Update a row1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "pHsh6R2c7zvNlfSW",
+          "name": "Supabase testes"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f969ef96-25f5-4c02-aa58-66a0a988c679",
+              "leftValue": "={{ \n  $now.toDateTime().setZone('America/Sao_Paulo') >=\n  $json.data_agendamento\n    .toDateTime()\n    .setZone('America/Sao_Paulo')\n    .minus({ days: 1 })\n}}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "b9d5ad2d-355c-4980-83f2-0a17b6fa95da",
+              "leftValue": "={{ $json.notifica1 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "5b021f2a-41d5-4836-804b-a8cf0ce987c3",
+              "leftValue": "={{ $json.encerrado }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        1296,
+        -224
+      ],
+      "id": "35380232-457e-4f99-a17e-8633f2d8bb49",
+      "name": "1 dia"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f969ef96-25f5-4c02-aa58-66a0a988c679",
+              "leftValue": "={{ \n  $now.toDateTime().setZone('America/Sao_Paulo') >=\n  $json.data_agendamento\n    .toDateTime()\n    .setZone('America/Sao_Paulo')\n    .minus({ hours: 1 })\n}}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "b9d5ad2d-355c-4980-83f2-0a17b6fa95da",
+              "leftValue": "={{ $json.notifica2 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "5b021f2a-41d5-4836-804b-a8cf0ce987c3",
+              "leftValue": "={{ $json.encerrado }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        1312,
+        128
+      ],
+      "id": "d2255dcc-048c-439f-b92f-26540ce2cf3b",
+      "name": "1 hora"
+    },
+    {
+      "parameters": {
+        "content": "## Lembrete 1 Dia\n",
+        "height": 272,
+        "width": 1248,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1232,
+        -288
+      ],
+      "typeVersion": 1,
+      "id": "fb54b4a1-230a-4a47-8e6e-dbfc4a5b917f",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## Lembrete 1 Hora",
+        "height": 304,
+        "width": 1248,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1232,
+        16
+      ],
+      "typeVersion": 1,
+      "id": "21087113-a672-4928-bf97-821255ee75cd",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        1312,
+        -512
+      ],
+      "id": "1ecb86ec-5d47-4a41-812e-65f8f33fd67e",
+      "name": "Schedule Trigger1"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "tableId": "notifica_agendamento",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "encerrado",
+              "condition": "eq",
+              "keyValue": "true"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1536,
+        -512
+      ],
+      "id": "0f2550ee-66b4-4255-9b9c-14bfeb84bfe8",
+      "name": "Delete a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "pHsh6R2c7zvNlfSW",
+          "name": "Supabase testes"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Apaga agendamentos passados",
+        "height": 304,
+        "width": 544,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1232,
+        -608
+      ],
+      "typeVersion": 1,
+      "id": "313517db-52cd-4306-a9f9-80c0e9f1f3d6",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "empresas",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "nome",
+              "keyValue": "={{ $json.empresa_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1632,
+        128
+      ],
+      "id": "5824ebfd-0707-4c39-8877-5efb5a1aeab6",
+      "name": "descobre empresa",
+      "credentials": {
+        "supabaseApi": {
+          "id": "pHsh6R2c7zvNlfSW",
+          "name": "Supabase testes"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "empresas",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "nome",
+              "keyValue": "={{ $json.empresa_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1632,
+        -224
+      ],
+      "id": "a234b641-601f-4c35-8626-87ff840594eb",
+      "name": "descobre empresa1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "pHsh6R2c7zvNlfSW",
+          "name": "Supabase testes"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Schedule Trigger": [
+      {
+        "json": {
+          "timestamp": "2025-12-06T22:04:59.642-03:00",
+          "Readable date": "December 6th 2025, 10:04:59 pm",
+          "Readable time": "10:04:59 pm",
+          "Day of week": "Saturday",
+          "Year": "2025",
+          "Month": "December",
+          "Day of month": "06",
+          "Hour": "22",
+          "Minute": "04",
+          "Second": "59",
+          "Timezone": "America/Sao_Paulo (UTC-03:00)"
+        }
+      }
+    ],
+    "Schedule Trigger1": [
+      {
+        "json": {
+          "timestamp": "2025-12-06T22:04:59.642-03:00",
+          "Readable date": "December 6th 2025, 10:04:59 pm",
+          "Readable time": "10:04:59 pm",
+          "Day of week": "Saturday",
+          "Year": "2025",
+          "Month": "December",
+          "Day of month": "06",
+          "Hour": "22",
+          "Minute": "04",
+          "Second": "59",
+          "Timezone": "America/Sao_Paulo (UTC-03:00)"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get many rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many rows": {
+      "main": [
+        [
+          {
+            "node": "1 dia",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "1 hora",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "descobre empresa1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Enviar texto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar texto": {
+      "main": [
+        [
+          {
+            "node": "Update a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "descobre empresa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model1": {
+      "main": [
+        [
+          {
+            "node": "Enviar texto1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar texto1": {
+      "main": [
+        [
+          {
+            "node": "Update a row1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1 dia": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1 hora": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Delete a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "descobre empresa": {
+      "main": [
+        [
+          {
+            "node": "Message a model1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "descobre empresa1": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "735394c9-14df-4c7e-a2bd-87fc37dc40f6",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d0d48c1bfffdabdb45a95141cce76732b0f063d8a6275c3debc3a803e1109e3d"
+  },
+  "id": "8cF4nM8qqgV5G8Iu",
+  "tags": []
+}
