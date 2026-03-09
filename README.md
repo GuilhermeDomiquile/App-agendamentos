@@ -1,73 +1,133 @@
-# Welcome to your Lovable project
+# 💈 App Agendamentos — Automação Inteligente de Atendimento
 
-## Project info
+Sistema completo de agendamento automático para negócios como **barbearias, clínicas, petshops e prestadores de serviço**, combinando **IA, automação e interface web moderna**.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+Este projeto integra **n8n, Supabase e Lovable** para criar uma solução de agendamento inteligente que automatiza grande parte do atendimento ao cliente.
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+# 🚀 Funcionalidades
 
-**Use Lovable**
+### 📅 Agendamento online
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+Clientes podem agendar serviços diretamente pelo aplicativo web, escolhendo:
 
-Changes made via Lovable will be committed automatically to this repo.
+* serviço
+* data
+* horário
+* nome
+* telefone
 
-**Use your preferred IDE**
+O sistema registra automaticamente o agendamento no banco de dados.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+---
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### 💬 Atendimento automatizado via WhatsApp (n8n)
 
-Follow these steps:
+O sistema utiliza **workflows no n8n para automatizar o atendimento pelo WhatsApp**, permitindo que clientes interajam com o negócio diretamente pelo chat.
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+Entre as funções do robô:
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+* responder mensagens automaticamente
+* realizar agendamentos via WhatsApp
+* consultar horários disponíveis
+* confirmar agendamentos
+* cancelar agendamentos
 
-# Step 3: Install the necessary dependencies.
-npm i
+---
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+### 🔔 Lembretes automáticos de agendamento
 
-**Edit a file directly in GitHub**
+O n8n também gerencia lembretes enviados aos clientes antes do horário marcado.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Esses lembretes ajudam a:
 
-**Use GitHub Codespaces**
+* reduzir faltas
+* lembrar o cliente do horário
+* melhorar organização da agenda
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+---
 
-## What technologies are used for this project?
+### 👨‍💼 Transferência para atendimento humano
 
-This project is built with:
+Caso necessário, o sistema pode **transferir o atendimento para um humano**, permitindo que o profissional continue a conversa diretamente com o cliente.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+---
 
-## How can I deploy this project?
+### 📊 Painel de agenda para o profissional
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+O sistema possui um painel onde o profissional pode:
 
-## Can I connect a custom domain to my Lovable project?
+* visualizar sua agenda
+* acompanhar agendamentos
+* editar serviços oferecidos
+* configurar horários disponíveis
 
-Yes, you can!
+---
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+# 🧠 Arquitetura do Sistema
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+### 🧩 Frontend — Lovable
+
+Interface web usada para:
+
+* clientes realizarem agendamentos
+* profissionais gerenciarem agenda
+* configuração de serviços e horários
+
+---
+
+### 💬 Automação de atendimento — n8n
+
+O **n8n é responsável pelo atendimento automatizado via WhatsApp**, incluindo:
+
+* recepção de mensagens
+* interpretação da solicitação do cliente
+* consulta ao banco de dados
+* criação de agendamentos
+* envio de confirmações e lembretes
+* transferência para atendimento humano
+
+---
+
+### 🗄 Banco de dados — Supabase
+
+O Supabase armazena todas as informações do sistema.
+
+Principais tabelas:
+
+* `agendamentos`
+* `dados_clientes`
+* `notifica_agendamento`
+
+Essas tabelas armazenam:
+
+* clientes
+* horários agendados
+* status do atendimento
+* controle de notificações
+
+---
+
+# 🔄 Fluxo do sistema
+
+1️⃣ Cliente agenda pelo site **ou envia mensagem no WhatsApp**
+2️⃣ O sistema registra o agendamento no **Supabase**
+3️⃣ O **n8n processa o fluxo de atendimento**
+4️⃣ O cliente recebe confirmação e lembretes automáticos
+
+---
+
+# 🛠 Tecnologias utilizadas
+
+* Lovable
+* n8n
+* Supabase
+* React
+* TypeScript
+
+---
+
+# 👨‍💻 Autor
+
+Projeto desenvolvido por **Guilherme Domiquile**.
