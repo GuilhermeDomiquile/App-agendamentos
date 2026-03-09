@@ -1010,6 +1010,10 @@ export default function Dashboard() {
               <TabsContent value="servicos">
                 <DashboardServicos />
               </TabsContent>
+
+              <TabsContent value="bloqueios">
+                <DashboardBloqueios />
+              </TabsContent>
             </Tabs>
           </div>
 
