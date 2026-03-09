@@ -20,6 +20,11 @@ Clientes podem agendar serviços diretamente pelo aplicativo web, escolhendo:
 
 O sistema registra automaticamente o agendamento no banco de dados.
 
+<img width="1009" height="891" alt="image" src="https://github.com/user-attachments/assets/eb855530-0fa4-4ca2-b7a4-fe676d494a4a" />
+<img width="594" height="890" alt="image" src="https://github.com/user-attachments/assets/17a49750-61d3-42ee-9e4b-2f9a1f385cce" />
+
+
+
 ---
 
 ### 💬 Atendimento automatizado via WhatsApp (n8n)
