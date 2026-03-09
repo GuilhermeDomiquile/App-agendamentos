@@ -130,6 +130,8 @@ export default function Dashboard() {
   const [bookingForm, setBookingForm] = useState({ nome_cliente: "", telefone: "", servico: "", observacoes: "" });
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
   const [servicos, setServicos] = useState<ServicoOption[]>([]);
+  const [bookingAvailableSlots, setBookingAvailableSlots] = useState<string[]>([]);
+  const [bookingLoadingSlots, setBookingLoadingSlots] = useState(false);
 
   // Swipe gesture state
   const touchStartX = useRef<number | null>(null);
