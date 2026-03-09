@@ -131,3 +131,6 @@ Essas tabelas armazenam:
 # 👨‍💻 Autor
 
 Projeto desenvolvido por **Guilherme Domiquile**.
+<img width="1849" height="887" alt="image" src="https://github.com/user-attachments/assets/15c7722a-91e6-473c-8a4e-242061b6766d" />
+<img width="1859" height="879" alt="image" src="https://github.com/user-attachments/assets/d0fc7e3b-2785-4f83-a1e4-6623da58fc9d" />
+
