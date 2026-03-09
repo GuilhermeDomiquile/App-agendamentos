@@ -584,7 +584,7 @@ export default function Dashboard() {
             variant="outline"
             size="sm"
             className="mt-4 h-9 text-[12px]"
-            onClick={() => openBookingModal(targetDate, "08:00")}
+            onClick={() => openBookingModal(targetDate)}
           >
             <Plus className="h-3.5 w-3.5 mr-1" />
             Agendar cliente
