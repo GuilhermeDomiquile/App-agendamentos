@@ -1260,7 +1260,7 @@ export default function Dashboard() {
                 <ScrollArea className="h-[600px]">
                   <div className="grid grid-cols-[60px_1fr]">
                     <div>
-                      {HOURS.map((hour) => (
+                      {getOperatingHours().map((hour) => (
                         <div key={hour} className="h-[96px] text-xs text-muted-foreground text-right pr-3 pt-1 border-r border-border border-b">
                           {String(hour).padStart(2, "0")}:00
                         </div>
