@@ -204,10 +204,33 @@ export default function Dashboard() {
     if (data) setServicos(data);
   };
 
+  const fetchConfigAgenda = async () => {
+    const { data } = await supabase
+      .from("configuracao_agenda")
+      .select("hora_inicio, hora_fim")
+      .limit(1)
+      .single();
+    if (data) {
+      setConfigAgenda({
+        hora_inicio: (data.hora_inicio as string)?.substring(0, 5) || "06:00",
+        hora_fim: (data.hora_fim as string)?.substring(0, 5) || "18:00",
+      });
+    }
+  };
+
+  const fetchBloqueios = async () => {
+    const { data } = await supabase
+      .from("bloqueios_agenda")
+      .select("*");
+    if (data) setBloqueios(data as BloqueioAgenda[]);
+  };
+
   useEffect(() => {
     fetchAppointments();
     fetchRecent();
     fetchServicos();
+    fetchConfigAgenda();
+    fetchBloqueios();
     const channel = supabase
       .channel("agendamentos-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "agendamentos" }, () => {
@@ -215,7 +238,13 @@ export default function Dashboard() {
         fetchRecent();
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    const bloqueiosChannel = supabase
+      .channel("bloqueios-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "bloqueios_agenda" }, () => {
+        fetchBloqueios();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); supabase.removeChannel(bloqueiosChannel); };
   }, []);
 
   const handleConfirmAction = async () => {
