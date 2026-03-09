@@ -118,6 +118,8 @@ export default function Dashboard() {
   const [mobileView, setMobileView] = useState<MobileView>("fila");
   const [agendaSubView, setAgendaSubView] = useState<"dia" | "mes">("dia");
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [bloqueios, setBloqueios] = useState<BloqueioAgenda[]>([]);
+  const [configAgenda, setConfigAgenda] = useState<ConfigAgenda>({ hora_inicio: "06:00", hora_fim: "18:00" });
   const [modalOpen, setModalOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ type: "cancelado" | "finalizado"; id: string } | null>(null);
   const [showDesktopQueue, setShowDesktopQueue] = useState(true);
