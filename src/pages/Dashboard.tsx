@@ -864,10 +864,6 @@ export default function Dashboard() {
             </DialogHeader>
             {bookingSlot && (
               <div className="space-y-4">
-                <div className="bg-muted/50 rounded-lg p-3 text-sm">
-                  <span className="text-muted-foreground">Horário: </span>
-                  <span className="font-medium text-foreground">{bookingSlot.date} às {bookingSlot.hora} - {getEndTime(bookingSlot.hora)}</span>
-                </div>
                 <div className="space-y-2">
                   <Label htmlFor="booking-nome">Nome do Cliente *</Label>
                   <Input
@@ -876,16 +872,6 @@ export default function Dashboard() {
                     value={bookingForm.nome_cliente}
                     onChange={(e) => setBookingForm({ ...bookingForm, nome_cliente: e.target.value })}
                     placeholder="Nome completo"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="booking-tel">Telefone</Label>
-                  <Input
-                    id="booking-tel"
-                    className="h-11"
-                    value={bookingForm.telefone}
-                    onChange={(e) => setBookingForm({ ...bookingForm, telefone: e.target.value })}
-                    placeholder="Opcional"
                   />
                 </div>
                 <div className="space-y-2">
@@ -904,12 +890,42 @@ export default function Dashboard() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="booking-obs">Observações</Label>
+                  <Label>Data *</Label>
                   <Input
-                    id="booking-obs"
+                    type="date"
                     className="h-11"
-                    value={bookingForm.observacoes}
-                    onChange={(e) => setBookingForm({ ...bookingForm, observacoes: e.target.value })}
+                    value={bookingSlot.date}
+                    onChange={(e) => handleBookingDateChange(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Horário *</Label>
+                  {bookingLoadingSlots ? (
+                    <div className="h-11 flex items-center text-sm text-muted-foreground">Carregando horários...</div>
+                  ) : bookingAvailableSlots.length === 0 ? (
+                    <div className="h-11 flex items-center text-sm text-muted-foreground">Nenhum horário disponível nesta data.</div>
+                  ) : (
+                    <Select value={bookingSlot.hora} onValueChange={(v) => setBookingSlot(prev => prev ? { ...prev, hora: v } : prev)}>
+                      <SelectTrigger className="h-11">
+                        <SelectValue placeholder="Selecione um horário" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {bookingAvailableSlots.map((slot) => (
+                          <SelectItem key={slot} value={slot}>
+                            {slot}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="booking-tel">Telefone</Label>
+                  <Input
+                    id="booking-tel"
+                    className="h-11"
+                    value={bookingForm.telefone}
+                    onChange={(e) => setBookingForm({ ...bookingForm, telefone: e.target.value })}
                     placeholder="Opcional"
                   />
                 </div>
@@ -920,9 +936,9 @@ export default function Dashboard() {
               <Button
                 className="h-11"
                 onClick={handleBookingSubmit}
-                disabled={bookingSubmitting || !bookingForm.nome_cliente.trim() || !bookingForm.servico}
+                disabled={bookingSubmitting || !bookingForm.nome_cliente.trim() || !bookingForm.servico || !bookingSlot?.hora}
               >
-                {bookingSubmitting ? "Salvando..." : "Confirmar"}
+                {bookingSubmitting ? "Salvando..." : "Confirmar agendamento"}
               </Button>
             </DialogFooter>
           </DialogContent>
