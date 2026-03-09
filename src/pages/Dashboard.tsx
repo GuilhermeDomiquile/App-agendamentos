@@ -15,10 +15,11 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ChevronLeft, ChevronRight, Phone, Clock, User, Scissors, Calendar as CalendarIcon, X, CheckCircle2, Settings, Plus, ListOrdered, UserPlus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Phone, Clock, User, Scissors, Calendar as CalendarIcon, X, CheckCircle2, Settings, Plus, ListOrdered, UserPlus, Ban } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, startOfWeek, endOfWeek, isSameMonth, isSameDay, addDays, subDays, addMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import DashboardServicos from "@/components/dashboard/DashboardServicos";
+import DashboardBloqueios from "@/components/dashboard/DashboardBloqueios";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Appointment {
@@ -38,7 +39,7 @@ interface ServicoOption {
 }
 
 type ViewMode = "month" | "week" | "day";
-type MobileView = "fila" | "agenda" | "servicos";
+type MobileView = "fila" | "agenda" | "servicos" | "bloqueios";
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const SLOT_HEIGHT = 48;
@@ -873,6 +874,10 @@ export default function Dashboard() {
                   <Settings className="h-3 w-3" />
                   Serviços
                 </TabsTrigger>
+                <TabsTrigger value="bloqueios" className="gap-1 flex-1 text-[12px] h-7">
+                  <Ban className="h-3 w-3" />
+                  Bloqueios
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="fila">
@@ -1005,6 +1010,10 @@ export default function Dashboard() {
               <TabsContent value="servicos">
                 <DashboardServicos />
               </TabsContent>
+
+              <TabsContent value="bloqueios">
+                <DashboardBloqueios />
+              </TabsContent>
             </Tabs>
           </div>
 
@@ -1045,6 +1054,10 @@ export default function Dashboard() {
             <TabsTrigger value="servicos" className="gap-2">
               <Settings className="h-4 w-4" />
               Serviços
+            </TabsTrigger>
+            <TabsTrigger value="bloqueios" className="gap-2">
+              <Ban className="h-4 w-4" />
+              Bloqueios
             </TabsTrigger>
           </TabsList>
 
@@ -1274,6 +1287,10 @@ export default function Dashboard() {
 
           <TabsContent value="servicos">
             <DashboardServicos />
+          </TabsContent>
+
+          <TabsContent value="bloqueios">
+            <DashboardBloqueios />
           </TabsContent>
         </Tabs>
       </div>
