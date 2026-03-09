@@ -498,7 +498,7 @@ export default function Dashboard() {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        {MOBILE_SLOTS.map((slot) => {
+        {getValidSlotsForDate(dateStr).map((slot) => {
           const apt = aptMap.get(slot) || aptMap.get(`${slot}:00`);
 
           if (apt) {
