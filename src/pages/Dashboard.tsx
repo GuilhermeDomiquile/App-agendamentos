@@ -19,6 +19,7 @@ import { ChevronLeft, ChevronRight, Phone, Clock, User, Scissors, Calendar as Ca
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, startOfWeek, endOfWeek, isSameMonth, isSameDay, addDays, subDays, addMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import DashboardServicos from "@/components/dashboard/DashboardServicos";
+import DashboardBloqueios from "@/components/dashboard/DashboardBloqueios";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Appointment {
