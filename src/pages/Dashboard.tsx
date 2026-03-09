@@ -41,7 +41,6 @@ interface ServicoOption {
 type ViewMode = "month" | "week" | "day";
 type MobileView = "fila" | "agenda" | "servicos" | "bloqueios";
 
-const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const SLOT_HEIGHT = 48;
 
 function getEndTime(hora: string): string {
@@ -51,31 +50,63 @@ function getEndTime(hora: string): string {
   return format(end, "HH:mm");
 }
 
-function getSlotOffset(hora: string, hourStart: number): number {
-  const [h, m] = hora.split(":").map(Number);
-  return ((h - hourStart) * 2 + m / 30) * SLOT_HEIGHT;
-}
-
-function generateAllSlots(): string[] {
+function generateSlotsInRange(startTime: string, endTime: string): string[] {
+  const [sh, sm] = startTime.split(":").map(Number);
+  const [eh, em] = endTime.split(":").map(Number);
+  const startMin = sh * 60 + sm;
+  const endMin = eh * 60 + em;
   const slots: string[] = [];
-  for (let h = 6; h < 18; h++) {
-    slots.push(`${String(h).padStart(2, "0")}:00`);
-    slots.push(`${String(h).padStart(2, "0")}:30`);
+  // Last bookable slot is 30min before closing
+  for (let m = startMin; m < endMin; m += 30) {
+    const h = Math.floor(m / 60);
+    const min = m % 60;
+    slots.push(`${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`);
   }
   return slots;
 }
 
-function generateMobileSlots(): string[] {
-  const slots: string[] = [];
-  for (let h = 0; h < 24; h++) {
-    slots.push(`${String(h).padStart(2, "0")}:00`);
-    slots.push(`${String(h).padStart(2, "0")}:30`);
+function isSlotBlocked(slot: string, dateStr: string, bloqueios: BloqueioAgenda[]): boolean {
+  const slotMin = timeToMinutes(slot);
+  const dayOfWeek = new Date(dateStr + "T12:00:00").getDay();
+
+  for (const b of bloqueios) {
+    if (!b.ativo) continue;
+    // Check if bloqueio applies to this date
+    if (b.tipo === "recorrente" && b.dia_semana !== dayOfWeek) continue;
+    if (b.tipo === "data" && b.data !== dateStr) continue;
+
+    // Full day block
+    if (!b.hora_inicio && !b.hora_fim) return true;
+
+    if (b.hora_inicio && b.hora_fim) {
+      const bStart = timeToMinutes(b.hora_inicio);
+      const bEnd = timeToMinutes(b.hora_fim);
+      if (slotMin >= bStart && slotMin < bEnd) return true;
+    }
   }
-  return slots;
+  return false;
 }
 
-const ALL_SLOTS = generateAllSlots();
-const MOBILE_SLOTS = generateMobileSlots();
+function timeToMinutes(t: string): number {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+}
+
+interface BloqueioAgenda {
+  id: string;
+  tipo: string;
+  dia_semana: number | null;
+  data: string | null;
+  hora_inicio: string | null;
+  hora_fim: string | null;
+  motivo: string | null;
+  ativo: boolean;
+}
+
+interface ConfigAgenda {
+  hora_inicio: string;
+  hora_fim: string;
+}
 
 export default function Dashboard() {
   const isMobile = useIsMobile();
