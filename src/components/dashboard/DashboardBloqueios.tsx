@@ -15,6 +15,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { CalendarIcon, Clock, Edit2, Plus, Repeat, Trash2 } from "lucide-react";
+import DashboardHorarioFuncionamento from "./DashboardHorarioFuncionamento";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -225,6 +226,9 @@ export default function DashboardBloqueios() {
 
   return (
     <div className="space-y-6">
+      {/* Horário de Funcionamento */}
+      <DashboardHorarioFuncionamento />
+
       {/* Bloqueios Recorrentes */}
       <Card>
         <CardHeader className="pb-3">
