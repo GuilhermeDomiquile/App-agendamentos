@@ -226,6 +226,9 @@ export default function DashboardBloqueios() {
 
   return (
     <div className="space-y-6">
+      {/* Horário de Funcionamento */}
+      <DashboardHorarioFuncionamento />
+
       {/* Bloqueios Recorrentes */}
       <Card>
         <CardHeader className="pb-3">
